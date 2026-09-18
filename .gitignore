@@ -1,0 +1,13 @@
+# --- OS noise ---
+.DS_Store
+
+# --- Editor / IDE ---
+.vscode/
+
+# --- Python ---
+__pycache__/
+.venv/
+venv/
+
+# --- Simulation ---
+obj_dir/
