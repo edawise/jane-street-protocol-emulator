@@ -1,0 +1,44 @@
+# Timing Requirements: Control, Delays & Event Synchronization
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-TIME-003
+    category: timing
+    priority: MUST
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator shall incorporate a free-running monotonic cycle
+      counter running at the full system clock rate, accessible to firmware and host.
+    description: >
+      A global hardware cycle counter must increment once per system clock cycle
+      continuously while the device is out of reset. It must be readable by host
+      registers and accessible to running routines to support absolute time
+      scheduling, profiling, and pulse-width measurement. A concrete
+      architecture realizes this counter in its own way; its width is an
+      architecture decision and must be wide enough not to roll over within a
+      single protocol transaction.
+    inputs:
+      - name: clk
+        description: System clock
+      - name: rst_n
+        description: Active-low reset
+    outputs:
+      - name: timestamp_value
+        description: Current free-running cycle count (width defined by the chosen architecture)
+    parameters:
+      counter_width: "architecture decision (must not roll over within a single protocol transaction)"
+      resolution: "1 clock cycle at the system clock rate"
+    acceptance_criteria:
+      - Timestamp increments by exactly 1 on every posedge clk while rst_n is deasserted.
+      - Timestamp does not pause during routine execution stalls or clock prescaling.
+      - Counter value is readable atomically (no tearing) at the architecture-defined width.
+    traceability:
+      source_spec: "02-architecture/sections/timing-engine/content.md"
+    verification:
+      method: simulation
+      reference_model: "timestamp_reference_model"
+      checker: "timestamp_monotonicity_checker"
+      generic_test_id: "TEST-TIME-003"

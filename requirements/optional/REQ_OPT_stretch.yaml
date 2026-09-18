@@ -1,0 +1,293 @@
+# Optional & Stretch Requirements: Advanced Protocols & Novel Capabilities
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-OPT-001
+    category: optional
+    priority: SHOULD
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The protocol emulator should demonstrate bit-level signalling and packet
+      framing for Low-Speed Universal Serial Bus (USB 1.5 Mbit/s).
+    description: >
+      At 50 MHz, a 1.5 Mbit/s USB bit cell spans ≈ 33.33 clock cycles (666.7 ns).
+      The emulator should implement NRZI encoding/decoding, bit-stuffing (inserting
+      a '0' after six consecutive '1's), Sync field generation (0x80), and EOP
+      (Single-Ended Zero for 2 bit times followed by J-state) in firmware routines.
+    inputs:
+      - name: usb_payload
+        description: Token or data packet bytes
+    outputs:
+      - name: dp_pin
+        description: USB D+ pin (GPIO)
+      - name: dm_pin
+        description: USB D- pin (GPIO)
+    parameters:
+      bit_rate: "1.5 Mbit/s"
+      bit_period_cycles: "33-34 cycles (nominal 666.7 ns)"
+      differential_levels: "D+ / D- differential pair"
+    acceptance_criteria:
+      - Bit-stuffed NRZI waveform produced on D+/D- matching USB 2.0 Low Speed physical specification.
+      - EOP (SE0 followed by J-state idle) properly driven at end of packet.
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 08-reference-protocols/sections/stretch-goals/content.md"
+    verification:
+      method: simulation
+      reference_model: "usb_ls_reference_model"
+      checker: "usb_nrzi_packet_checker"
+      generic_test_id: "TEST-OPT-001"
+
+  - id: REQ-OPT-002
+    category: optional
+    priority: SHOULD
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The protocol emulator should demonstrate bit-level Manchester-encoded
+      signalling suitable for 10BASE-T Ethernet (10 Mbit/s).
+    description: >
+      At 50 MHz, a 10 Mbit/s Ethernet bit cell is 100 ns (5 clock cycles), with
+      mid-bit transitions occurring at 2.5 cycles (alternating 2 and 3 cycles).
+      The emulator should demonstrate transmitting a valid Ethernet preamble
+      (alternating 1/0 pattern) and Start Frame Delimiter (SFD) at the bit level.
+    inputs:
+      - name: ethernet_preamble
+        description: Standard 7-byte preamble + 1-byte SFD
+    outputs:
+      - name: txd_pin
+        description: Manchester-encoded transmit line
+    parameters:
+      bit_rate: "10 Mbit/s"
+      bit_period_ns: 100
+      bit_period_cycles: 5
+    acceptance_criteria:
+      - Manchester-encoded output with mid-bit transitions verified on every bit cell.
+      - Preamble sequence decoded cleanly by a 10BASE-T receiver model.
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 08-reference-protocols/sections/stretch-goals/content.md"
+    verification:
+      method: simulation
+      reference_model: "manchester_reference_model"
+      checker: "ethernet_bit_level_checker"
+      generic_test_id: "TEST-OPT-002"
+
+  - id: REQ-OPT-003
+    category: optional
+    priority: MAY
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator may support Controller Area Network (CAN) bus bit timing,
+      dominant/recessive bit generation, and bus arbitration sampling up to 1 Mbit/s.
+    description: >
+      CAN bus at 1 Mbit/s has a 1.0 µs bit time (50 clock cycles at 50 MHz).
+      The emulator may demonstrate open-drain / recessive driving, bit-stuffing,
+      and sampling the bus during transmission to detect arbitration loss.
+    inputs:
+      - name: can_rx_pin
+        description: CAN bus receiver feedback
+    outputs:
+      - name: can_tx_pin
+        description: CAN bus transmit drive
+    parameters:
+      bit_rate: "1.0 Mbit/s"
+      sample_point: "75% of bit period (cycle 37)"
+    acceptance_criteria:
+      - Dominant bit (drive 0) overrides recessive bit (float 1).
+      - Detection of arbitration loss halts transmission without corrupting bus.
+    traceability:
+      source_spec: "08-reference-protocols/sections/stretch-goals/content.md (CAN is named in the brief only as a protocol 'to consider', which is non-normative)"
+    verification:
+      method: simulation
+      reference_model: "can_bus_reference_model"
+      checker: "can_arbitration_checker"
+      generic_test_id: "TEST-OPT-003"
+
+  - id: REQ-OPT-004
+    category: optional
+    priority: MAY
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator may support single-wire pulse-width protocols (e.g.
+      Dallas/Maxim 1-Wire or WS2812 RGB LED protocol) requiring microsecond and
+      sub-microsecond timing precision.
+    description: >
+      WS2812 protocol requires strict pulse durations: T0H ≈ 400 ns (20 cycles),
+      T0L ≈ 850 ns (42 cycles), T1H ≈ 800 ns (40 cycles), T1L ≈ 450 ns (23 cycles).
+      1-Wire requires reset pulses (480 µs) and time slots (60 µs). The emulator
+      may demonstrate precise pulse shaping for these buses. Note: 1-Wire and WS2812
+      are not named in the competition brief (which lists JTAG, SWD, PS/2, and CAN);
+      this is a self-imposed optional extension from the imported specification.
+    inputs:
+      - name: led_data
+        description: 24-bit GRB color values
+    outputs:
+      - name: ws2812_pin
+        description: Single-wire NRZ pulse stream
+    parameters:
+      pulse_tolerance_ns: "±150 ns conforming to WS2812 timing specs"
+    acceptance_criteria:
+      - High and low pulse durations strictly conform to WS2812 timing table.
+      - Reset latch pulse (> 50 µs low) successfully triggers latch.
+    traceability:
+      source_spec: "08-reference-protocols/sections/stretch-goals/content.md"
+    verification:
+      method: simulation
+      reference_model: "ws2812_reference_model"
+      checker: "pulse_width_checker"
+      generic_test_id: "TEST-OPT-004"
+
+  - id: REQ-OPT-005
+    category: optional
+    priority: MAY
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator may support JTAG (IEEE 1149.1) and ARM SWD debug probe
+      protocol bit-banging.
+    description: >
+      The emulator may execute routines that drive TMS/TCK state transitions across
+      the 16-state JTAG TAP controller and serialize TDI/TDO data shifts, or
+      generate SWCLK and bidirectional SWDIO packet sequences.
+    inputs:
+      - name: tdo_pin
+        description: JTAG Test Data Out
+    outputs:
+      - name: tck_pin
+        description: JTAG Test Clock
+      - name: tms_pin
+        description: JTAG Test Mode Select
+      - name: tdi_pin
+        description: JTAG Test Data In
+    parameters:
+      jtag_clock_max: "10 MHz"
+    acceptance_criteria:
+      - JTAG TAP state machine transitions correctly through Reset, Idle, DR-Scan, and IR-Scan.
+      - Readout of 32-bit IDCODE register from JTAG TAP model.
+      - The TAP controller and shift path operate correctly at the documented maximum TCK rate of 10 MHz.
+    traceability:
+      source_spec: "08-reference-protocols/sections/stretch-goals/content.md (JTAG and SWD are named in the brief only as protocols 'to consider', which is non-normative)"
+    verification:
+      method: simulation
+      reference_model: "jtag_tap_reference_model"
+      checker: "jtag_state_checker"
+      generic_test_id: "TEST-OPT-005"
+
+  - id: REQ-OPT-006
+    category: optional
+    priority: MAY
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator may support real-time bus sniffing / protocol analysis
+      and deterministic bus fault injection.
+    description: >
+      Exploiting the concurrent multi-channel architecture, one execution routine
+      may passively sample external bus lines, timestamp events, and push transactions
+      to the host buffer, while another routine can inject programmable glitch
+      pulses or parity/ACK errors into a live bus to test target device resilience.
+      This is an optional differentiator suggested by the candidate specification and
+      the brief's non-normative "what else?" prompt, not an external obligation.
+    inputs:
+      - name: sniffer_input_pins
+        description: Pins monitored passively
+    outputs:
+      - name: fault_injection_pin
+        description: Pin driven with intentional error or glitch pulse
+    parameters:
+      glitch_pulse_min_width: "1 clock cycle (20 ns)"
+    acceptance_criteria:
+      - Sniffer captures all transitions with accurate timestamps up to buffer bandwidth.
+      - Fault injector produces single-cycle (20 ns) glitch on command.
+    traceability:
+      source_spec: "08-reference-protocols/sections/stretch-goals/content.md"
+    verification:
+      method: simulation
+      reference_model: "fault_injector_reference_model"
+      checker: "glitch_width_checker"
+      generic_test_id: "TEST-OPT-006"
+
+  - id: REQ-OPT-007
+    category: optional
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The design should demonstrate at least one protocol beyond UART, SPI, and I2C,
+      selected from JTAG, SWD, PS/2, CAN, 1-Wire, or another bit-banged bus.
+    description: >
+      Derived from source rule R-GOAL-04 (priority: should). The brief only says
+      "Other interesting protocols to consider", which is non-normative; this
+      compound obligation ("at least one") is therefore self-imposed, not externally
+      mandated. Satisfying any one of REQ-OPT-003, REQ-OPT-004, or REQ-OPT-005
+      discharges it.
+    inputs:
+      - name: protocol_firmware
+        description: Firmware routine implementing the additional protocol
+    outputs:
+      - name: protocol_pins
+        description: Pin activity demonstrating the additional protocol
+    parameters:
+      minimum_additional_protocols: 1
+    acceptance_criteria:
+      - At least one non-UART/SPI/I2C protocol is demonstrated end-to-end (or to its documented bit-level scope).
+    traceability:
+      source_spec: "specialist-spec: 08-reference-protocols/sections/stretch-goals/content.md (R-GOAL-04); brief only says 'consider'"
+    verification:
+      method: simulation
+      reference_model: "protocol_demo_reference_model"
+      checker: "protocol_scope_checker"
+      generic_test_id: "TEST-OPT-007"
+
+  - id: REQ-OPT-008
+    category: optional
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      Low-Speed USB (1.5 Mbit/s) and/or 10BASE-T Ethernet (10 Mbit/s) bit-level
+      signalling should be demonstrated in addition to at least one of
+      JTAG, SWD, PS/2, CAN, or 1-Wire.
+    description: >
+      Derived from source rule R-STR-01 (priority: should). The brief's own stretch
+      statement ("Stretch goals include low-speed USB and 10Mbit Ethernet") is
+      captured by REQ-OPT-001/002; the "plus at least one other protocol" clause here
+      is self-imposed. Bit-level-only scope for Ethernet and USB Full-Speed is
+      documented in AMB-003.
+    inputs:
+      - name: stretch_protocol_firmware
+        description: Firmware for USB LS and/or 10BASE-T plus one additional protocol
+    outputs:
+      - name: stretch_protocol_pins
+        description: Pin activity for the stretch protocols
+    parameters:
+      high_rate_demo: "Low-Speed USB and/or 10BASE-T (bit-level scope permitted)"
+      additional_protocol_count: 1
+    acceptance_criteria:
+      - USB Low-Speed bit-level framing and/or 10BASE-T Manchester framing is demonstrated and documented as bit-level-only where applicable.
+      - At least one of JTAG, SWD, PS/2, CAN, or 1-Wire is also demonstrated.
+    traceability:
+      source_spec: "specialist-spec: 08-reference-protocols/sections/stretch-goals/content.md (R-STR-01)"
+    verification:
+      method: simulation
+      reference_model: "stretch_scope_reference_model"
+      checker: "protocol_scope_checker"
+      generic_test_id: "TEST-OPT-008"

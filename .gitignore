@@ -11,3 +11,6 @@ venv/
 
 # --- Simulation ---
 obj_dir/
+
+# --- Generated artifacts ---
+contract.md

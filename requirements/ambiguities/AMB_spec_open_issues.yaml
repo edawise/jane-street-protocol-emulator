@@ -1,0 +1,100 @@
+# Ambiguities & Open Issues in Specification
+# Part of Jane Street Protocol Emulator ReqSpec
+
+ambiguities:
+  - id: AMB-001
+    title: "Emulation of Open-Drain Buses (I2C, 1-Wire) on Push-Pull Pad Drivers"
+    status: RESOLVED
+    description: >
+      The Tiny Tapeout ASIC harness provides standard digital CMOS push-pull pad
+      drivers for bidirectional pins (`uio`). True open-drain / open-collector I/O
+      requires either external pull-up resistors or open-drain pad configurations.
+    impact: >
+      If firmware actively drives logic high ('1') onto an I2C line while an external
+      slave pulls the line low (e.g. during an ACK or clock stretching), a destructive
+      crowbar current or contention event will occur.
+    resolution: >
+      All open-drain protocols MUST emulate open-drain behavior by:
+      1. Driving logic 0: `uio_out` = 0, `uio_oe` = 1 (active low drive).
+      2. Releasing line to logic 1: `uio_out` = 0, `uio_oe` = 0 (tri-stated, allowing
+         external board pull-up resistor to pull line to VDD).
+      Firmware must never set `uio_out` = 1 with `uio_oe` = 1 on an open-drain bus.
+    verification_check: "Assert that uio_out and uio_oe are never simultaneously 1 on I2C/1-Wire pins."
+
+  - id: AMB-002
+    title: "Host Link Pin Multiplexing vs Dedicated Protocol Pins"
+    status: RESOLVED
+    description: >
+      The Tiny Tapeout harness provides only 8 dedicated inputs and 8 dedicated outputs.
+      The host communication link uses GPIO 0 (`ui_in[0]`) and GPIO 8 (`uo_out[0]`).
+      If an external protocol requires all 8 inputs or all 8 outputs, a conflict arises.
+    impact: >
+      Using GPIO 0 or GPIO 8 for hardware protocols disables runtime host communication
+      (register reads/writes and buffer polling).
+    resolution: >
+      The harness gives only 8 input-only pins (`ui_in`) and 8 output-only pins (`uo_out`),
+      so a dedicated host link must occupy one of each; which indices are used is an
+      architecture decision. The host-link pins remain dedicated to the bootstrap loader
+      during boot. Once `boot_done` is asserted, firmware may optionally re-assign them to
+      protocol execution. When re-assigned, the host link is suspended. Recovery is always
+      guaranteed by hardware reset (`rst_n`), which forces the pins back to host UART
+      control. For general verification, tests should leave the host-link pins alone and
+      allocate the remaining pins to protocols. This resolution is realised at the
+      architecture level by the architecture-scoped requirement REQ-IF-011
+      (see `requirements/architecture/REQ_ARCH_scoped.yaml`), so it is deliberately
+      outside the frozen behavioural contract.
+    verification_check: "Verify clean link suspension and restoration upon hardware reset."
+
+  - id: AMB-003
+    title: "Clock Frequency Limits vs Ultra-High-Speed Protocols (10BASE-T and USB FS)"
+    status: RESOLVED
+    description: >
+      At 50 MHz system clock (20 ns period), 10BASE-T Ethernet (100 ns bit period)
+      provides only 5 clock cycles per bit, and USB Full-Speed (12 Mbit/s, 83.3 ns period)
+      provides ≈ 4.17 cycles per bit.
+    impact: >
+      Decoding full MAC frames, calculating CRC-32, or handling USB token/packet logic
+      cannot be done on a 4-cycle budget using software bit-banging without specialized
+      hardware assist.
+    resolution: >
+      The specification explicitly classifies 10BASE-T and USB Full-Speed as
+      *bit-level framing capabilities only* (e.g. generating preambles, sync patterns,
+      and NRZI transitions). Full protocol stack decoding is NOT a requirement at 50 MHz.
+      Low-Speed USB (1.5 Mbit/s, 33 cycles/bit) remains the full-packet emulation target.
+    verification_check: "Verify bit-level waveform framing tests for Ethernet and USB."
+
+  - id: AMB-004
+    title: "Target Evaluation Board External Pull-up Resistance and Bus Capacitance"
+    status: OPEN
+    description: >
+      The rise time of open-drain signals (I2C SCL/SDA, 1-Wire) depends on external
+      pull-up resistor values and PCB trace/pad capacitance.
+    impact: >
+      At 400 kHz Fast-mode I2C, max allowed rise time is 300 ns. Weak pull-ups on an
+      unspecified demo board could violate timing and distort bit-banged sampling.
+    resolution: >
+      Assumed typical external pull-up of 2.2 kΩ to 4.7 kΩ with bus capacitance < 100 pF.
+      Awaiting clarification from competition organizers regarding the exact test fixture
+      and carrier board specs.
+    verification_check: "Model 2.2k pull-up and 50pF capacitance in mixed-signal/analog-aware testbench."
+
+  - id: AMB-005
+    title: "Tile/Area Budget: Brief (6x4) vs Imported Specialist Specification (8x4)"
+    status: RESOLVED
+    description: >
+      The competition brief states "Set the tile size in info.yaml to 6x4" and
+      "The current maximum area is 6x4 tiles per design. We are working on the
+      possibility of scaling up to 8x4 tiles (~30% more area)." The imported
+      specialist specification instead asserts an 8x4 allocation with a 32K-cell
+      budget as though it were settled (01-overview/sections/constraints/content.md,
+      rules R-CON-02 / R-AREA-01 / R-AREA-02).
+    impact: >
+      Planning against 32K cells when only 24 tiles are available would overrun the
+      real area budget by roughly one third and put place-and-route closure at risk.
+    resolution: >
+      The brief is authoritative. REQ-PHYS-002 mandates the 6x4 baseline (~24 tiles,
+      ~24K cells nominal) with a <= 18,000-cell (75%) pre-layout target, and treats
+      8x4 / ~32K cells as a conditional stretch only. The specialist specification's
+      R-CON-02 / R-AREA-01 / R-AREA-02 numbers are stale and are not used as the
+      budget source; REQ-PHYS-002 cites the brief directly.
+    verification_check: "Post-synthesis mapped cell count <= 18,000 for the 6x4 baseline; re-baselined to 24,000 only if the 8x4 scale-up is confirmed by the organizers."

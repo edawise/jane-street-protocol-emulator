@@ -1,0 +1,132 @@
+# Performance Requirements: Protocol Bitrates & Clock Frequencies
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-PERF-001
+    category: performance
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: external-standard
+    statement: >
+      The protocol emulator shall generate and receive UART serial streams across
+      standard baud rates from 9,600 baud up to at least 115,200 baud with bit period
+      accuracy better than 1.0%.
+    description: >
+      At 50 MHz system clock, a bit cell at 115,200 baud corresponds to ≈ 434 clock
+      cycles (period 8.68 µs). The bit timing generator must divide the 50 MHz clock
+      to within 0.05% of nominal, and loop jitter must not exceed ±1 cycle (0.23% error),
+      comfortably exceeding standard UART receiver tolerance limits (typically ±2.5%).
+    inputs:
+      - name: baud_divisor
+        description: Programmed cycle count per bit period
+    outputs:
+      - name: serial_tx
+        description: Serial bitstream
+    parameters:
+      supported_standard_bauds: [9600, 19200, 38400, 57600, 115200]
+      cycle_count_at_115200: 434
+      bit_period_tolerance_percent: 1.0
+    acceptance_criteria:
+      - Oscilloscope / VCD measurement of 115,200 baud bit cell measures 8.68 µs ± 20 ns.
+      - Back-to-back transfer of 256 bytes completes with zero bit or framing errors.
+    traceability:
+      source_spec: "08-reference-protocols/sections/uart/content.md"
+      standards:
+        - id: "ITU-T V.24"
+          title: "ITU-T Recommendation V.24: List of definitions for interchange circuits between data terminal equipment (DTE) and data circuit-terminating equipment (DCE)"
+          url: "https://www.itu.int/rec/T-REC-V.24"
+          governs: ["baud_tolerance"]
+        - id: "NS16550A"
+          title: "NS16550A-compatible UART programming model (de-facto industry convention for 5-8 data bits, parity and 1-2 stop bits)"
+          url: null
+          governs: ["supported_standard_bauds", "bit_period_tolerance_percent"]
+    verification:
+      method: simulation
+      reference_model: "uart_tx_reference_model"
+      checker: "baud_rate_accuracy_checker"
+      generic_test_id: "TEST-PERF-001"
+
+  - id: REQ-PERF-002
+    category: performance
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: engineered
+    statement: >
+      The protocol emulator should generate SPI master clock (SCLK) frequencies
+      spanning from 100 kHz up to an engineered target of 25 MHz with 50% duty cycle.
+    description: >
+      At a 50 MHz clock, 25 MHz SPI SCLK represents the theoretical Nyquist limit
+      of 2 clock cycles per SCLK period (1 cycle high, 1 cycle low). This is a
+      self-imposed performance target, not an external mandate; the externally
+      mandated obligation is only that the SPI clock rate is configurable
+      (REQ-FUNC-003 / R-GOAL-02). The emulator should support the 25 MHz target
+      where the microarchitecture allows and must at least cover the rates needed
+      by the reference protocols.
+    inputs:
+      - name: sclk_divider
+        description: Programmed half-period cycle count
+    outputs:
+      - name: sclk
+        description: SPI master clock output
+    parameters:
+      target_sclk_frequency: "25.0 MHz (engineered target)"
+      duty_cycle_at_25MHz: "50% (1 cycle high, 1 cycle low)"
+    acceptance_criteria:
+      - SCLK period at the 25 MHz engineered target is exactly 40.0 ns (2 clk cycles at 50 MHz).
+      - MOSI data changes on the correct clock edge according to CPOL/CPHA mode.
+      - Setup and hold times relative to SCLK meet SPI device requirements.
+    traceability:
+      source_spec: "08-reference-protocols/sections/spi/content.md"
+    verification:
+      method: simulation
+      reference_model: "spi_master_reference_model"
+      checker: "clock_frequency_checker"
+      generic_test_id: "TEST-PERF-002"
+
+  - id: REQ-PERF-003
+    category: performance
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: external-standard
+    statement: >
+      The protocol emulator shall support I2C Standard-mode (100 kHz) and
+      Fast-mode (400 kHz) bus clock rates with conforming SCL high/low times.
+    description: >
+      At 50 MHz system clock:
+      - 100 kHz I2C period = 500 clock cycles (10.0 µs); minimum t_LOW = 4.7 µs (235 cycles), minimum t_HIGH = 4.0 µs (200 cycles).
+      - 400 kHz I2C period = 125 clock cycles (2.5 µs); minimum t_LOW = 1.3 µs (65 cycles), minimum t_HIGH = 0.6 µs (30 cycles).
+      The timing engine must synthesize conforming high and low intervals.
+    inputs:
+      - name: i2c_speed_select
+        description: Configuration for Standard (100k) or Fast (400k) mode
+    outputs:
+      - name: scl
+        description: I2C serial clock
+    parameters:
+      standard_mode_freq: "100 kHz (period 10.0 µs)"
+      fast_mode_freq: "400 kHz (period 2.5 µs)"
+      min_t_high_standard_ns: 4000
+      min_t_low_standard_ns: 4700
+      min_t_high_fast_ns: 600
+      min_t_low_fast_ns: 1300
+    acceptance_criteria:
+      - SCL high and low periods conform to I2C specification across both 100 kHz and 400 kHz modes.
+      - SDA hold time and setup time around SCL edges strictly conform to NXP UM10204 standards.
+    traceability:
+      source_spec: "08-reference-protocols/sections/i2c/content.md"
+      standards:
+        - id: "NXP-UM10204"
+          title: "NXP UM10204: I2C-bus specification and user manual"
+          url: "https://www.nxp.com/docs/en/user-guide/UM10204.pdf"
+          governs: ["standard_mode_freq", "fast_mode_freq", "min_t_high_standard_ns", "min_t_low_standard_ns", "min_t_high_fast_ns", "min_t_low_fast_ns"]
+    verification:
+      method: simulation
+      reference_model: "i2c_master_reference_model"
+      checker: "i2c_timing_compliance_checker"
+      generic_test_id: "TEST-PERF-003"

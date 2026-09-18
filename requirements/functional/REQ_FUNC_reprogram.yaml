@@ -1,0 +1,42 @@
+# Functional Requirements: Programmability & Dynamic Reconfiguration
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-FUNC-007
+    category: functional
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The protocol emulator shall implement all protocol state logic, framing,
+      and bit sequencing in reloadable firmware stored in volatile memory, with
+      no dedicated hard-wired UART, SPI, or I2C peripheral controller blocks.
+    description: >
+      The silicon must function as a programmable bit-banging execution engine.
+      Protocol capabilities must not be hardcoded in fixed RTL state machines.
+      New or modified protocols must be deployable post-fabrication solely by
+      updating firmware without silicon redesign or tapeout changes.
+    inputs:
+      - name: firmware_image
+        description: Serial or binary instruction stream loaded into volatile memory
+      - name: load_control
+        description: Control signal indicating firmware load completion
+    outputs:
+      - name: protocol_execution_ready
+        description: Status flag asserting execution readiness
+    parameters:
+      memory_type: "volatile program memory"
+      hardwired_controllers_permitted: false
+    acceptance_criteria:
+      - The same RTL, unmodified, implements at least two distinct protocol behaviors (e.g. UART and SPI) selected purely by the loaded firmware image.
+      - After fabrication, a new protocol routine is deployed by reloading firmware only, with no change to the bitstream or GDS.
+      - "Secondary structural check: no dedicated hardwired UART/SPI/I2C controller is present in the synthesised netlist."
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 01-overview/sections/about-pex/content.md"
+    verification:
+      method: simulation
+      reference_model: "programmable_core_reference_model"
+      checker: "reconfigurability_checker"
+      generic_test_id: "TEST-PROG-001"

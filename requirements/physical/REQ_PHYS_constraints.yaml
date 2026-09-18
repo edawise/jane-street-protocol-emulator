@@ -1,0 +1,240 @@
+# Physical Requirements: ASIC Constraints & Foundry PDK
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-PHYS-001
+    category: physical
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: constrained
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The design shall target the IHP 130 nm CMOS5L open-source PDK and synthesize
+      cleanly to GDS-II using the LibreLane / Tiny Tapeout automated flow without
+      proprietary or NDA-encumbered IP blocks.
+    description: >
+      The competition mandates implementation on the open IHP SG13G2 / CMOS5L PDK.
+      All digital logic, memories, and wrappers must use open-source cell libraries
+      and macros supported by the Tiny Tapeout CMOS5L shuttle flow.
+    inputs:
+      - name: verilog_source
+        description: Synthesizable Verilog/SystemVerilog source tree
+    outputs:
+      - name: gds_layout
+        description: Final tapeout GDS-II file
+    parameters:
+      process_node: "IHP 130 nm CMOS5L"
+      flow: "LibreLane / OpenLane 2"
+      template_repository: "ttihp-verilog-template (branch cmos5l)"
+    acceptance_criteria:
+      - DRC (Design Rule Check) reports zero violations against IHP CMOS5L rules.
+      - LVS (Layout Versus Schematic) reports clean match against synthesized netlist.
+      - Zero proprietary or encrypted third-party IP cores.
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 01-overview/sections/constraints/content.md"
+    verification:
+      method: physical_drc_lvs
+      reference_model: null
+      checker: "openlane_drc_lvs_checker"
+      generic_test_id: "TEST-PHYS-001"
+
+  - id: REQ-PHYS-002
+    category: physical
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: constrained
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The design shall fit within the baseline Tiny Tapeout 6x4 tile allocation
+      (24 tiles, ~24,000 logic cells nominal budget); it should optionally scale to
+      8x4 tiles (32 tiles, ~32,000 cells) if the shuttle scale-up is confirmed.
+    description: >
+      The competition brief explicitly specifies: "Set the tile size in info.yaml to 6x4"
+      and notes "The current maximum area is 6x4 tiles per design. We are working on the
+      possibility of scaling up to 8x4 tiles (~30% more area)." The primary mandatory
+      constraint is 6x4 tiles (~24K cells total). The imported specialist specification
+      instead asserts 8x4 / 32K as settled; that is stale and is recorded in AMB-005.
+      The brief is authoritative. The self-imposed cell-count margin that reserves
+      headroom for clock-tree buffers and routing is a separate internal requirement
+      (REQ-PHYS-006), not part of the external tile mandate.
+    inputs:
+      - name: mapped_netlist
+        description: Gate-level netlist produced by Yosys
+    outputs:
+      - name: utilization_report
+        description: Post-synthesis and post-routing area statistics
+    parameters:
+      baseline_tile_grid: "6 x 4 (24 tiles)"
+      baseline_nominal_area_mm2: 0.72
+      baseline_cell_budget_max: 24000
+      stretch_tile_grid: "8 x 4 (32 tiles, pending confirmation)"
+      stretch_cell_budget_max: 32000
+    acceptance_criteria:
+      - Post-synthesis utilisation fits within the 6x4 tile allocation with no overrun.
+      - Detailed routing completes with 0 shorts, 0 opens, and routing congestion < 100%.
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ (rules: tile size / area) | supersedes: 01-overview/sections/constraints/content.md, which is stale on this point (AMB-005)"
+    verification:
+      method: synthesis_report
+      reference_model: null
+      checker: "cell_count_budget_checker"
+      generic_test_id: "TEST-PHYS-002"
+
+  - id: REQ-PHYS-006
+    category: physical
+    priority: MUST
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: engineered
+    statement: >
+      Post-synthesis standard-logic cell count shall not exceed 18,000 cells
+      (75% of the ~24,000-cell nominal 6x4 budget), so that clock-tree buffers
+      and routing retain headroom.
+    description: >
+      The brief says to "run synthesis early, check the mapped cell area, and leave
+      room for clock-tree buffers and routing", but it does not set a specific margin.
+      This self-imposed gate reserves 25% of the nominal 6x4 budget (18,000 cells);
+      if the 8x4 scale-up is confirmed, the target scales to 24,000 cells. It is a
+      project-internal policy, distinct from the externally-mandated tile allocation
+      in REQ-PHYS-002.
+    inputs:
+      - name: mapped_netlist
+        description: Gate-level netlist produced by Yosys
+    outputs:
+      - name: utilization_report
+        description: Post-synthesis mapped-cell count
+    parameters:
+      baseline_logic_cell_limit: 18000 # 75% of the ~24,000-cell 6x4 budget
+      stretch_logic_cell_limit: 24000
+    acceptance_criteria:
+      - Post-synthesis cell count report <= 18,000 standard cells for the 6x4 baseline.
+      - If the 8x4 scale-up is confirmed by the organisers, the target re-baselines to 24,000 cells.
+    traceability:
+      source_spec: "engineered margin derived from the brief's 'leave room for clock-tree buffers and routing' guidance"
+    verification:
+      method: synthesis_report
+      reference_model: null
+      checker: "cell_count_budget_checker"
+      generic_test_id: "TEST-PHYS-006"
+
+  - id: REQ-PHYS-003
+    category: physical
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The program instruction memory subsystem shall fit within the allocated tile
+      area and standard cell budget without crowding out core execution and routing logic.
+    description: >
+      The competition brief notes that "For instruction memory, SRAM can be more area-efficient
+      than flip-flops" and provides reference examples. The requirement is area feasibility:
+      the memory architecture (whether using an SRAM hard macro, dense latch arrays, or
+      compact ROM/RAM hybrid) must leave sufficient silicon area for datapath, routing,
+      and buffers to meet the 18,000-cell budget.
+    inputs:
+      - name: memory_read_addr
+        description: Address bus for program fetch
+    outputs:
+      - name: memory_read_data
+        description: Instruction word delivered to execution unit
+    parameters:
+      area_feasibility: "Memory subsystem area must not prevent chip from meeting REQ-PHYS-002"
+    acceptance_criteria:
+      - Combined core logic plus memory macro footprint fits inside the 6x4 tile boundary.
+      - Memory timing permits single-cycle synchronous instruction fetch at 50 MHz.
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 01-overview/sections/constraints/content.md"
+    verification:
+      method: synthesis_report
+      reference_model: null
+      checker: "macro_area_checker"
+      generic_test_id: "TEST-PHYS-003"
+
+  - id: REQ-PHYS-004
+    category: physical
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: constrained
+    obligation: external
+    source_provenance: tt-template
+    statement: >
+      The design shall achieve static timing closure at 50 MHz (CLOCK_PERIOD = 20.0 ns)
+      across all specified process, voltage, and temperature (PVT) operating corners.
+    description: >
+      Full place-and-route must meet setup and hold constraints with positive slack
+      at 50 MHz under worst-case slow and fast corners, taking into account clock
+      tree insertion delays, wire resistance/capacitance, and pad propagation delays.
+    inputs:
+      - name: sdc_timing_constraints
+        description: Synopsys Design Constraints defining 50 MHz clock and I/O delays
+    outputs:
+      - name: sta_timing_report
+        description: Static timing analysis slack summary
+    parameters:
+      clock_frequency: "50 MHz"
+      clock_period: "20.0 ns"
+      worst_negative_slack_setup: ">= 0.0 ns"
+      worst_negative_slack_hold: ">= 0.0 ns"
+    acceptance_criteria:
+      - Setup WNS >= 0.0 ns on slow corner.
+      - Hold WNS >= 0.0 ns on fast corner.
+      - No max transition or max capacitance DRC violations on clock nets.
+    traceability:
+      source_spec: "01-overview/sections/constraints/content.md"
+    verification:
+      method: timing_analysis
+      reference_model: null
+      checker: "opensta_timing_checker"
+      generic_test_id: "TEST-PHYS-004"
+
+  - id: REQ-PHYS-005
+    category: physical
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The design submission shall be open source, released under a license that
+      permits others to use, modify, and build on it.
+    description: >
+      The brief's rules state: "Your submission should be open source so others can
+      use and build on it." This is a deliverable-licensing obligation, distinct from
+      REQ-PHYS-001 (which concerns use of an open-source PDK and the absence of
+      proprietary or NDA-encumbered third-party IP blocks).
+      The specific license is a project choice, not an external mandate. Apache-2.0 was
+      selected because the mandated Tiny Tapeout CMOS5L template is itself Apache-2.0, so
+      the build files and RTL derived from it carry that license regardless; because it
+      includes an explicit patent grant (Section 3), which matters more for silicon than
+      for software; and because it satisfies the brief's reuse requirement. Neither
+      Apache-2.0 nor MIT is a purpose-built hardware license: they grant rights over the
+      source files, not unambiguously over the manufacture of the resulting design. If
+      unambiguous manufacturing rights are wanted later, CERN-OHL-P (permissive) or
+      CERN-OHL-S (reciprocal) are the purpose-built options for the RTL and GDS artifacts.
+    inputs:
+      - name: design_deliverables
+        description: RTL sources, verification environment, firmware, and build scripts
+    outputs:
+      - name: license_metadata
+        description: Repository license and reuse permissions
+    parameters:
+      license_requirement: "Open license permitting reuse and derivative works"
+      selected_license: "Apache-2.0 (project choice, see top-level LICENSE)"
+      open_deliverables: ["RTL", "verification environment", "reference firmware", "build flow"]
+    acceptance_criteria:
+      - A top-level LICENSE file contains the full text of the selected license (Apache-2.0).
+      - All RTL, verification, and firmware sources are publicly available under that license.
+      - The license permits reuse and derivative works with no NDA or proprietary restriction.
+      - Source files carry an SPDX-License-Identifier header naming the selected license.
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: js-brief (https://blog.janestreet.com/protocol-emulator-asic-competition/, rules: Open source); specialist spec 01-overview/sections/about-pex/content.md R-PEX-04"
+    verification:
+      method: review
+      reference_model: null
+      checker: "license_compliance_checker"
+      generic_test_id: "TEST-PHYS-005"

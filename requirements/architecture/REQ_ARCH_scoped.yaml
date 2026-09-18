@@ -1,0 +1,520 @@
+# Architecture-Level Requirements (Candidate-scoped)
+# Part of Jane Street Protocol Emulator ReqSpec
+#
+# These are NOT behavioural requirements. Each one presupposes a concrete
+# microarchitecture: a channel count, a host-link protocol, a delay encoding.
+# They are expressed as requirements so they stay traceable and testable, but
+# they are architecture-scoped, so they are excluded from the frozen
+# verification contract (see tools/select_contract.py) and verified at the
+# architecture level (Phase IV) rather than by the generic testbench.
+#
+# Nothing here names a candidate. The link is recorded only on the candidate
+# side: each decision in architectures/<candidate>/decisions.yaml lists the
+# requirements it satisfies in `satisfies_reqs`. validate_reqspec.py enforces
+# that no architecture-scoped requirement is orphaned -- that some candidate
+# decision claims it.
+
+requirements:
+
+  # ---------------------------------------------------------------
+  # Concurrency, buffering and flow control
+  # ---------------------------------------------------------------
+  - id: REQ-FUNC-008
+    category: functional
+    priority: MUST
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator shall support concurrent, non-interfering protocol
+      execution across at least two independent hardware execution channels operating
+      simultaneously on non-overlapping physical pins.
+    description: >
+      The emulator must support running at least two distinct protocols simultaneously
+      (e.g., full-duplex UART, or SPI Master concurrently with I2C Master) on separate
+      physical pins. The execution of one protocol channel must not introduce timing jitter
+      or cycle stalls into another independent channel.
+    inputs:
+      - name: channel_programs
+        description: Independent program routines assigned to execution channels
+      - name: pin_allocations
+        description: Non-overlapping physical pin assignments per channel
+    outputs:
+      - name: channel_outputs
+        description: Pin signals driven by respective concurrent routines
+    parameters:
+      minimum_concurrent_channels: 2
+      cross_channel_jitter_budget: "0 cycles (zero interference on non-shared pins)"
+    acceptance_criteria:
+      - Simultaneous execution of UART TX on pin A and SPI Master on pins B, C, D.
+      - Waveform timing of UART TX verified to remain bit-identical whether SPI Master is idle or actively transferring at maximum clock rate.
+    traceability:
+      source_spec: "01-overview/sections/about-pex/content.md"
+    verification:
+      method: simulation
+      reference_model: "multi_channel_scheduler_reference_model"
+      checker: "concurrency_jitter_checker"
+      generic_test_id: "TEST-PROG-002"
+
+  - id: REQ-FUNC-009
+    category: functional
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: engineered
+    statement: >
+      The protocol emulator should provide channel-to-channel synchronization
+      mechanisms allowing concurrent routines to coordinate events deterministically.
+    description: >
+      When multiple routines cooperate on a single composite protocol (e.g. UART TX
+      and RX coordinating flow control, or multi-pin parallel bus handshakes),
+      the emulator must provide low-latency, deterministic event signaling
+      (e.g. shared event flags or trigger lines) without host intervention.
+    inputs:
+      - name: sync_trigger_assert
+        description: Event trigger signaled by source routine
+    outputs:
+      - name: sync_trigger_status
+        description: Event trigger observed by target routine
+    parameters:
+      signaling_latency: "1 clock cycle propagation between channels"
+    acceptance_criteria:
+      - Routine B waiting on a trigger from Routine A resumes execution exactly 1 cycle after Routine A asserts the trigger.
+      - Event flags are sampled synchronously without pre-empting instruction execution.
+    traceability:
+      source_spec: "04-isa/sections/irq-system/content.md"
+    verification:
+      method: simulation
+      reference_model: "event_sync_reference_model"
+      checker: "channel_sync_checker"
+      generic_test_id: "TEST-PROG-003"
+  - id: REQ-FUNC-010
+    category: functional
+    priority: MUST
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator shall provide hardware data buffering between the host
+      communication interface and the protocol execution engine for both transmit
+      and receive data paths.
+    description: >
+      To decouple the rate of protocol execution on the physical pins from the
+      timing of host communication, data buffers must queue payload data. The
+      protocol engine must be able to consume transmit data and produce receive data
+      without forcing the host to synchronize at the bit level.
+    inputs:
+      - name: host_write_data
+        description: Data written from host link to TX buffer
+      - name: engine_rx_push
+        description: Serialized/parallel data captured by protocol engine pushed to RX buffer
+    outputs:
+      - name: engine_tx_pop
+        description: Data popped by protocol engine for wire transmission
+      - name: host_read_data
+        description: Data read by host from RX buffer
+      - name: buffer_status
+        description: Full, empty, and occupancy level indicators
+    parameters:
+      decoupling: "Asynchronous decoupling between wire rate and host service rate"
+    acceptance_criteria:
+      - Host can write bursts of payload words up to buffer capacity without dropped words.
+      - Protocol engine can drain transmit buffer at full line speed.
+      - Buffer occupancy levels correctly report entries queued.
+    traceability:
+      source_spec: "02-architecture/sections/fifos/content.md"
+    verification:
+      method: simulation
+      reference_model: "fifo_stream_reference_model"
+      checker: "stream_integrity_checker"
+      generic_test_id: "TEST-BUFF-001"
+
+  - id: REQ-FUNC-011
+    category: functional
+    priority: MUST
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: engineered
+    statement: >
+      The protocol engine shall stall predictably upon attempting to read an empty
+      transmit buffer or write to a full receive buffer, preserving data integrity
+      without data loss, corruption, or duplicated actions upon resuming.
+    description: >
+      Buffer underrun on transmit or overrun on receive must not cause silent data
+      corruption or undefined execution behavior. If the protocol routine attempts
+      to pop an empty transmit buffer, it must pause execution until data becomes
+      available. If it attempts to push to a full receive buffer, it must pause until
+      space is freed. While stalled, architectural state must be preserved without
+      duplicating the stalled operation when execution resumes.
+    inputs:
+      - name: tx_buffer_empty
+        width: 1
+        description: Empty flag of transmit buffer
+      - name: rx_buffer_full
+        width: 1
+        description: Full flag of receive buffer
+    outputs:
+      - name: engine_stall_state
+        width: 1
+        description: Stall status of protocol routine
+    parameters:
+      stall_recovery_latency: "Predictable, hazard-free resumption upon buffer readiness"
+    acceptance_criteria:
+      - Attempting to pop an empty TX buffer freezes program counter and pin states.
+      - As soon as host writes data into TX buffer, execution resumes without dropping words.
+      - Stalled instruction effect is not duplicated when the stall condition clears.
+    traceability:
+      source_spec: "02-architecture/sections/fifos/content.md"
+    verification:
+      method: simulation
+      reference_model: "fifo_stream_reference_model"
+      checker: "stream_integrity_checker"
+      generic_test_id: "TEST-BUFF-002"
+
+  - id: REQ-FUNC-012
+    category: functional
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: engineered
+    statement: >
+      The protocol emulator should provide configurable watermark threshold indicators
+      on data buffers to support efficient host event notification and flow control.
+    description: >
+      The system must allow configuration of high-watermark thresholds for RX buffers
+      and low-watermark thresholds for TX buffers. Crossing a programmed threshold
+      shall trigger an observable event flag, allowing the host or protocol engine
+      to service buffers before underrun or overflow occurs.
+    inputs:
+      - name: rx_threshold
+        description: High watermark trigger level for RX buffer
+      - name: tx_threshold
+        description: Low watermark trigger level for TX buffer
+    outputs:
+      - name: watermark_event
+        width: 1
+        description: Active-high flag asserted when threshold condition is met
+    parameters:
+      threshold_resolution: "1 word"
+    acceptance_criteria:
+      - Flag asserts when RX occupancy >= rx_threshold (for non-zero threshold).
+      - Flag asserts when TX occupancy <= tx_threshold (for non-zero threshold).
+      - Flag deasserts immediately when buffer state moves out of threshold range.
+    traceability:
+      source_spec: "02-architecture/sections/fifos/content.md"
+    verification:
+      method: simulation
+      reference_model: "fifo_stream_reference_model"
+      checker: "stream_integrity_checker"
+      generic_test_id: "TEST-BUFF-003"
+
+  # ---------------------------------------------------------------
+  # Host link, boot and pin ownership
+  # ---------------------------------------------------------------
+  - id: REQ-IF-007
+    category: interface
+    priority: MUST
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator shall support configurable execution rate scaling to
+      divide or pace routine execution relative to the full-rate timestamp counter.
+    description: >
+      A configurable clock division or rate pacing mechanism shall allow slowing
+      down routine execution by an integer factor for low-rate protocols or power
+      conservation, while the free-running timestamp counter continues advancing at
+      the full 50 MHz rate to preserve absolute measurement resolution.
+    inputs:
+      - name: rate_scale_factor
+        description: Configurable rate division or pacing factor
+    outputs:
+      - name: execution_rate_strobe
+        description: Strobe pacing routine execution
+    parameters:
+      division_range: [1, 65536]
+    acceptance_criteria:
+      - With scale factor = 1, routine executes at full 50 MHz rate.
+      - With scale factor = 5, routine executes 1 operation every 5 cycles (10 MHz).
+      - Timestamp counter advances by 5 cycles during that single divided operation.
+    traceability:
+      source_spec: "03-interfaces/sections/clock-reset/content.md"
+    verification:
+      method: simulation
+      reference_model: "clock_prescaler_reference_model"
+      checker: "clock_division_checker"
+      generic_test_id: "TEST-CLK-003"
+  - id: REQ-IF-008
+    category: interface
+    priority: MUST
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator shall implement an in-system firmware loading path over
+      the host link, capable of receiving, verifying, and writing firmware images into
+      program memory following reset without requiring an external JTAG/SWD programmer.
+    description: >
+      Following reset deassertion, the device must boot into a fixed bootloader state.
+      The bootloader must receive firmware payload over the host link, verify frame
+      integrity, write instruction words into program memory, and transition the emulator
+      to the ready state before execution begins. Which pins the host link occupies, and
+      the framing it uses, are architecture decisions.
+    inputs:
+      - name: host_rx
+        width: 1
+        direction: input
+        description: Serial receive line of the host link
+    outputs:
+      - name: host_tx
+        width: 1
+        direction: output
+        description: Serial transmit line of the host link
+      - name: boot_done
+        width: 1
+        description: Status indicator asserting valid firmware load
+    parameters:
+      load_path: "In-system, over the host link; no external JTAG/SWD programmer required"
+    acceptance_criteria:
+      - Host can stream a firmware payload into program memory over the host link.
+      - Execution engines remain held in reset until a complete, valid image has been received; no instruction is executed from a partially loaded image.
+      - Upon a valid image, `boot_done` and device READY are asserted, and only then are the execution engines released from reset.
+      - The `boot_done` flag is asserted only on a successful load and is cleared on any return to the BOOT state.
+      - Corrupted or invalid frames (bad length, missing end marker, over-length) abort the load, return to the BOOT sync-wait state, and leave `boot_done` deasserted.
+    traceability:
+      source_spec: "05-program-loading/sections/bootstrap-rom/content.md"
+    verification:
+      method: simulation
+      reference_model: "bootloader_reference_model"
+      checker: "bootstrap_protocol_checker"
+      generic_test_id: "TEST-BOOT-001"
+
+  - id: REQ-IF-009
+    category: interface
+    priority: MUST
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      Following completion of firmware loading, the host serial link shall provide
+      a bidirectional register and data streaming access protocol capable of
+      controlling routine execution, inspecting status, reading timestamps, and
+      transferring protocol payload data.
+    description: >
+      After `boot_done` asserts, the host link shall carry formatted transactions
+      allowing the external host to start/halt routines, inspect execution status,
+      read the timestamp counter, service interrupts, and stream data in and out
+      of data buffers without disrupting real-time pin execution.
+    inputs:
+      - name: host_command_in
+        description: Formatted command transaction from host
+    outputs:
+      - name: host_response_out
+        description: Formatted response/event transaction to host
+    parameters:
+      link_capabilities: ["Register read/write", "FIFO streaming", "Event notification"]
+    acceptance_criteria:
+      - Host can issue register read and write commands over the link and receive correct responses.
+      - Host can write data into transmit buffers and read data from receive buffers.
+      - Corrupted transactions are detected and handled without link deadlocks.
+    traceability:
+      source_spec: "03-interfaces/sections/host-csr-link/content.md"
+    verification:
+      method: simulation
+      reference_model: "host_csr_reference_model"
+      checker: "csr_link_protocol_checker"
+      generic_test_id: "TEST-HOST-001"
+
+  - id: REQ-IF-010
+    category: interface
+    priority: MUST
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The emulator shall support firmware reloading and soft reset at any time
+      over the host link without requiring a hardware power cycle.
+    description: >
+      The host must be able to command a soft reset to return the emulator to the
+      bootstrap loading state, allowing new firmware to be streamed into memory.
+      Volatile program memory contents must be preserved across soft reset until
+      overwritten by the new image.
+    inputs:
+      - name: soft_reset_command
+        description: Command asserting software reset
+    outputs:
+      - name: fsm_boot_state
+        description: Transition back to bootstrap state
+    parameters:
+      reset_recovery_time: "<= 4 clock cycles"
+    acceptance_criteria:
+      - Soft reset command stops all running routines immediately.
+      - System returns to bootstrap sync-wait state.
+      - Reloading new firmware succeeds without cycling `rst_n` or `ena`.
+    traceability:
+      source_spec: "05-program-loading/sections/boot-sequence/content.md"
+    verification:
+      method: simulation
+      reference_model: "boot_fsm_reference_model"
+      checker: "soft_reset_checker"
+      generic_test_id: "TEST-BOOT-002"
+
+  - id: REQ-IF-011
+    category: interface
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The emulator should permit firmware to re-purpose the pins used by the host link
+      for protocol I/O after boot loading is complete, with recovery on reset.
+    description: >
+      In applications where all 24 physical pins are required for external hardware
+      protocols, firmware should be allowed to configure the host-link pins as standard
+      protocol pins. In this mode, the host register link is suspended until a hardware
+      or pin reset returns the device to the bootstrap state.
+    inputs:
+      - name: pin_repurpose_enable
+        description: Software control bit enabling host-link pin crossbar routing
+    outputs:
+      - name: host_link_active
+        description: Status indicating whether host link or protocol owns the pins
+    parameters:
+      safety_guard: "Reset must unconditionally re-assign the host-link pins to the bootloader"
+    acceptance_criteria:
+      - Firmware can route execution channel signals to the host-link pins when enabled.
+      - Reset unconditionally re-claims the host-link pins for host UART.
+    traceability:
+      source_spec: "03-interfaces/sections/host-uart/content.md"
+    verification:
+      method: simulation
+      reference_model: "gpio_pad_reference_model"
+      checker: "pin_ownership_checker"
+      generic_test_id: "TEST-HOST-002"
+
+  # ---------------------------------------------------------------
+  # Timing and delay primitives
+  # ---------------------------------------------------------------
+  - id: REQ-TIME-004
+    category: timing
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: engineered
+    statement: >
+      The protocol engine should provide fine-grained delay capability with single
+      clock cycle resolution (ranging from 0 to at least 31 cycles) executable
+      without software polling loops.
+    description: >
+      To enable precise bit timing without bloating program memory with NOP
+      instructions, the emulator should support fine-grained delay injection allowing
+      pin states to be held stable for a configurable number of cycles. The value
+      below is a minimum capability, not an upper limit: a candidate with a wider
+      delay field satisfies it. The exact encoding (for example the width of a
+      per-instruction delay field) is an architecture decision.
+    inputs:
+      - name: delay_cycles
+        description: Number of stall cycles to inject
+    outputs:
+      - name: pin_hold_duration
+        description: Number of clock cycles the output pins hold state
+    parameters:
+      minimum_fine_delay_cycles: 31
+      resolution: "1 clock cycle"
+    acceptance_criteria:
+      - A fine delay step of k cycles holds output pins steady for exactly k clock cycles during the delay step.
+      - Some operand value holds output pins steady for at least 31 clock cycles at 1-cycle resolution.
+      - Fine delay introduces zero timing jitter or phase offset.
+    traceability:
+      source_spec: "02-architecture/sections/timing-engine/content.md"
+    verification:
+      method: simulation
+      reference_model: "delay_engine_reference_model"
+      checker: "instruction_duration_checker"
+      generic_test_id: "TEST-TIME-004"
+
+  - id: REQ-TIME-005
+    category: timing
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: engineered
+    statement: >
+      The protocol engine should support coarse extended delays spanning from 1 cycle
+      up to at least 65,536 clock cycles in a single operational step.
+    description: >
+      Protocols frequently require extended idle periods (e.g. UART inter-character
+      delays, SPI CS setup/hold, reset pulses, or bus timeouts) spanning hundreds or
+      thousands of cycles. The emulator should support stalling for large cycle counts
+      in a single operational step, eliminating the need for unrolled software loops.
+      The value below is a minimum capability, not a ceiling. The operand width and
+      instruction form are architecture decisions.
+    inputs:
+      - name: delay_count
+        description: Cycle count operand
+    outputs:
+      - name: stall_cycles
+        description: Number of clock cycles the engine remains stalled
+    parameters:
+      minimum_coarse_delay_cycles: 65536
+    acceptance_criteria:
+      - A coarse delay step with operand N holds the engine for a deterministic cycle count selected by the operand; the count is reproducible and monotonically non-decreasing in N.
+      - Some operand value produces a single-step stall of at least 65,536 clock cycles.
+      - Program counter remains frozen on the delay step until the countdown finishes.
+    traceability:
+      source_spec: "02-architecture/sections/timing-engine/content.md"
+    verification:
+      method: simulation
+      reference_model: "delay_engine_reference_model"
+      checker: "instruction_duration_checker"
+      generic_test_id: "TEST-TIME-005"
+
+  - id: REQ-TIME-006
+    category: timing
+    priority: MUST
+    status: ASSUMED
+    arch_scope: architecture-scoped
+    obligation: internal
+    source_provenance: engineered
+    statement: >
+      The protocol engine shall support event-conditioned stalling that blocks
+      routine advancement until a specified hardware condition is satisfied.
+    description: >
+      To support asynchronous handshakes (e.g. SPI CS assertion, I2C clock stretching,
+      buffer threshold ready, or absolute timestamp matching), the engine must be able
+      to wait for a boolean condition (pin high/low, event flag, buffer ready, timestamp >= target)
+      without active CPU polling loops that consume program space or burn dynamic power.
+    inputs:
+      - name: condition_selector
+        description: Source condition to evaluate
+      - name: condition_argument
+        description: Pin index, event line, or threshold value
+    outputs:
+      - name: engine_unblock
+        description: Transition from stalled state to run state
+    parameters:
+      evaluation_frequency: "Evaluated every posedge clk while stalled"
+      unblock_latency: "Resumes execution on the cycle condition becomes true"
+    acceptance_criteria:
+      - Program execution does not advance while waiting.
+      - Output pins hold their state while waiting.
+      - As soon as the condition evaluates true on a clock edge, execution proceeds to the next step.
+    traceability:
+      source_spec: "02-architecture/sections/timing-engine/content.md"
+    verification:
+      method: simulation
+      reference_model: "event_wait_reference_model"
+      checker: "wait_condition_checker"
+      generic_test_id: "TEST-TIME-006"

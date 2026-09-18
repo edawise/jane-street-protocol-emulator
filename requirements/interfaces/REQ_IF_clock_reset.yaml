@@ -1,0 +1,81 @@
+# Interface Requirements: Clock, Reset & Power Management
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-IF-005
+    category: interface
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: constrained
+    obligation: external
+    source_provenance: tt-template
+    statement: >
+      The protocol emulator shall operate on a single synchronous clock domain
+      supplied by the external clock pin (clk) with a target nominal frequency of 50 MHz.
+    description: >
+      All internal execution logic, state machines, timing counters, memory
+      interfaces, and host communication baud rate generators must operate on the
+      single synchronous `clk` domain provided by the Tiny Tapeout harness.
+    inputs:
+      - name: clk
+        width: 1
+        direction: input
+        description: System clock input from harness
+    outputs: []
+    parameters:
+      target_frequency: "50 MHz"
+      clock_period: "20.0 ns"
+      duty_cycle: "50% ± 5%"
+    acceptance_criteria:
+      - Static timing analysis closes without setup or hold violations at 50 MHz under worst-case PVT corners.
+      - Full-chip simulation verifies zero inter-clock CDC synchronizers required for core datapath.
+    traceability:
+      source_spec: "03-interfaces/sections/clock-reset/content.md"
+    verification:
+      method: timing_analysis
+      reference_model: null
+      checker: "sta_timing_checker"
+      generic_test_id: "TEST-CLK-001"
+
+  - id: REQ-IF-006
+    category: interface
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: constrained
+    obligation: external
+    source_provenance: tt-template
+    statement: >
+      The emulator shall reset all internal registers asynchronously upon assertion
+      of active-low reset (rst_n), with deassertion synchronised internally to posedge clk.
+    description: >
+      To ensure deterministic startup and prevent reset-recovery metastability,
+      asserting `rst_n` (driving to 0) must asynchronously force all registers,
+      pointers, and state machines into their defined reset states. Deassertion of
+      `rst_n` (releasing to 1) must be filtered through a 2-stage synchronizer
+      aligned to `posedge clk`.
+    inputs:
+      - name: rst_n
+        width: 1
+        direction: input
+        description: Active-low asynchronous reset input
+      - name: clk
+        width: 1
+        direction: input
+        description: System clock
+    outputs:
+      - name: sync_rst_n
+        description: Internally synchronised reset tree
+    parameters:
+      reset_assertion_response: "Immediate (asynchronous)"
+      reset_deassertion_recovery: "1-2 clk cycles after rst_n posedge"
+    acceptance_criteria:
+      - Asserting `rst_n` low immediately clears state within 5 ns regardless of clock activity.
+      - Deasserting `rst_n` asynchronously does not violate setup/hold recovery timing at registers.
+      - Upon reset deassertion, system enters defined bootstrap state cleanly.
+    traceability:
+      source_spec: "03-interfaces/sections/clock-reset/content.md"
+    verification:
+      method: simulation
+      reference_model: "reset_controller_reference_model"
+      checker: "reset_recovery_checker"
+      generic_test_id: "TEST-CLK-002"

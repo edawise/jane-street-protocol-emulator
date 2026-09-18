@@ -1,0 +1,43 @@
+name: Validate Requirements Specification
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'requirements/**'
+      - 'verification/**'
+      - 'architectures/**'
+      - 'requirements-dev.txt'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'requirements/**'
+      - 'verification/**'
+      - 'architectures/**'
+      - 'requirements-dev.txt'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install validator dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Validate ReqSpec (schema + cross-references)
+        run: python3 requirements/tools/validate_reqspec.py
+
+      - name: Check frozen verification contract and intents
+        run: python3 requirements/tools/select_contract.py --quiet --intents verification/intent
+
+      - name: Verify the generated contract summary is up to date
+        run: |
+          python3 requirements/tools/select_contract.py --md /tmp/contract.md
+          test -s /tmp/contract.md

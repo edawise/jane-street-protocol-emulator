@@ -1,0 +1,82 @@
+# Timing Requirements: Determinism & Cycle Accuracy
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-TIME-001
+    category: timing
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The protocol execution engine shall provide fixed, documented, and reproducible
+      integer clock cycle execution latency per operation, with zero jitter and
+      bit-identical pin waveforms across simulation, FPGA, and silicon for identical
+      program and input sequences.
+    description: >
+      Bit-banging serial hardware protocols requires cycle-exact timing to adhere
+      to strict external physical layer specifications. The execution engine must
+      guarantee that a given operation takes the same documented number of cycles on
+      every execution, independent of data values or execution history. How an
+      architecture achieves that (for example, by avoiding pipelines, caches, or
+      speculation) is its own decision and is not part of this behavioural contract.
+    inputs:
+      - name: clk
+        description: Synchronous clock input
+      - name: operation_sequence
+        description: Sequence of protocol operations executed by the engine
+    outputs:
+      - name: pin_transitions
+        description: State transitions on physical output pads
+    parameters:
+      cycle_cost_determinism: "Fixed integer cycles per documented operation"
+      repeatability: "Bit-identical pin waveforms for identical program and stimulus across sim, FPGA, and silicon"
+    acceptance_criteria:
+      - Given the same initial state and input sequence, pin transitions occur on the exact same clock cycles across RTL simulation, gate-level simulation, and silicon.
+      - Every documented operation has a single, fixed integer cycle cost that does not depend on data values or execution history.
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 01-overview/sections/about-pex/content.md"
+    verification:
+      method: simulation
+      reference_model: "cycle_accurate_execution_reference_model"
+      checker: "cycle_determinism_checker"
+      generic_test_id: "TEST-TIME-001"
+
+  - id: REQ-TIME-002
+    category: timing
+    priority: MUST
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: engineered
+    statement: >
+      Output pin transitions driven by the protocol engine shall exhibit zero
+      cumulative timing drift across multi-byte or multi-frame transmissions
+      relative to the programmed nominal clock grid.
+    description: >
+      Asynchronous protocols like UART and synchronous clocked buses require
+      edges to align with nominal baud/clock grids. The emulator's timing generation
+      mechanisms must not introduce rounding errors or phase slippage that accumulates
+      over time across long transmissions.
+    inputs:
+      - name: target_bit_period
+        description: Specified period in clock cycles
+      - name: frame_length
+        description: Number of consecutive bits/frames transmitted
+    outputs:
+      - name: pin_edge_timestamps
+        description: Clock cycle timestamp of every transition
+    parameters:
+      cumulative_drift_cycles: 0
+      edge_jitter_cycles: 0
+    acceptance_criteria:
+      - For a 1000-byte UART transmission at 115200 baud, the total elapsed clock cycles match the exact theoretical integer cycle product with zero accumulated drift cycles.
+      - Periodic square waves (e.g. SPI SCLK) maintain constant 50% duty cycle without drifting phase relative to the system clock.
+    traceability:
+      source_spec: "04-isa/sections/timing-control/content.md"
+    verification:
+      method: simulation
+      reference_model: "waveform_timing_reference_model"
+      checker: "drift_and_jitter_checker"
+      generic_test_id: "TEST-TIME-002"

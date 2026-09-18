@@ -1,0 +1,171 @@
+# Interface Requirements: Physical GPIO & Pin Crossbar
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-IF-001
+    category: interface
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: constrained
+    obligation: external
+    source_provenance: tt-template
+    statement: >
+      The top-level ASIC shall expose exactly 24 user general-purpose I/O pins,
+      conforming to the Tiny Tapeout harness specification partitioned as:
+      8 dedicated inputs (ui_in[7:0]), 8 dedicated outputs (uo_out[7:0]), and
+      8 bidirectional I/O pins (uio[7:0]).
+    description: >
+      The device's external pins are physically fixed by the Tiny Tapeout pad ring.
+      Internally, these 24 physical signals shall be aggregated into a unified
+      logical GPIO bus spanning GPIO 0 to GPIO 23:
+      GPIO[7:0] = ui_in[7:0] (input only),
+      GPIO[15:8] = uo_out[7:0] (output only),
+      GPIO[23:16] = uio[7:0] (bidirectional with tri-state control).
+    inputs:
+      - name: ui_in
+        width: 8
+        direction: input
+        description: Dedicated inputs (GPIO 0-7)
+      - name: uio_in
+        width: 8
+        direction: input
+        description: Bidirectional input path (GPIO 16-23)
+    outputs:
+      - name: uo_out
+        width: 8
+        direction: output
+        description: Dedicated outputs (GPIO 8-15)
+      - name: uio_out
+        width: 8
+        direction: output
+        description: Bidirectional output path (GPIO 16-23)
+      - name: uio_oe
+        width: 8
+        direction: output
+        description: Bidirectional output enable (1 = drive, 0 = high-Z)
+    parameters:
+      total_pins: 24
+      input_pins: 8
+      output_pins: 8
+      bidirectional_pins: 8
+    acceptance_criteria:
+      - Port declaration matches `tt_um_*` Tiny Tapeout template top module interface.
+      - Sampling `ui_in` reflects incoming physical pin states on `GPIO[7:0]`.
+      - Driving `uo_out` directly asserts physical states on `GPIO[15:8]`.
+    traceability:
+      source_spec: "03-interfaces/sections/gpio-interface/content.md"
+    verification:
+      method: simulation
+      reference_model: "gpio_pad_reference_model"
+      checker: "gpio_pin_checker"
+      generic_test_id: "TEST-GPIO-001"
+
+  - id: REQ-IF-002
+    category: interface
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: constrained
+    obligation: external
+    source_provenance: tt-template
+    statement: >
+      The protocol emulator shall support dynamic, software-controlled output
+      enable on all bidirectional pins (uio_oe[7:0]) to enable tri-stating,
+      bus turnaround, and open-drain emulation.
+    description: >
+      For bidirectional pins (GPIO 16 to 23), the emulator must control both the
+      driven data value (`uio_out`) and the pad output enable (`uio_oe`). When
+      `uio_oe[k]` is 0, the pin must be high-impedance, allowing input reading via
+      `uio_in[k]`. When `uio_oe[k]` is 1, the pad actively drives `uio_out[k]`.
+    inputs:
+      - name: pin_oe_mask
+        width: 8
+        description: Per-pin output-enable control signals
+    outputs:
+      - name: uio_oe
+        width: 8
+        description: Pad output enable driven to Tiny Tapeout harness
+    parameters:
+      oe_switching_time: "1 clock cycle"
+    acceptance_criteria:
+      - Deasserting output enable floats the pin within 1 clock cycle.
+      - Readback during floated state accurately reflects external line voltage.
+      - Open-drain emulation verifies low driven with OE=1 and high floated with OE=0.
+    traceability:
+      source_spec: "03-interfaces/sections/gpio-interface/content.md"
+    verification:
+      method: simulation
+      reference_model: "gpio_pad_reference_model"
+      checker: "uio_tri_state_checker"
+      generic_test_id: "TEST-GPIO-002"
+
+  - id: REQ-IF-003
+    category: interface
+    priority: MUST
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      Protocol signals shall be assignable to physical GPIO pins by firmware
+      configuration, so that a protocol routine is not bound to a fixed pin set
+      and can be relocated without changing the hardware.
+    description: >
+      A protocol routine must not be hardcoded to specific physical pins, because
+      the brief requires new protocols to be supportable within the fixed I/O
+      constraints after fabrication. The degree of routing freedom (for example an
+      any-to-any 16-to-24 crossbar) and the mechanism used are architecture
+      decisions.
+    inputs:
+      - name: pin_routing_config
+        description: Firmware mapping between protocol signals and physical GPIOs
+    outputs:
+      - name: routed_gpio
+        description: Routed input and output signals
+    parameters:
+      pin_assignment: "firmware-configurable"
+    acceptance_criteria:
+      - A protocol signal (e.g. SCLK, TX) can be mapped to GPIO 8, GPIO 9, or GPIO 16 solely via software configuration.
+      - Relocating a protocol to a different pin requires only a configuration change, with no re-synthesis or RTL edit.
+    traceability:
+      source_spec: "02-architecture/sections/pin-crossbar/content.md"
+    verification:
+      method: simulation
+      reference_model: "pin_crossbar_reference_model"
+      checker: "crossbar_routing_checker"
+      generic_test_id: "TEST-GPIO-003"
+
+  - id: REQ-IF-004
+    category: interface
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: constrained
+    obligation: external
+    source_provenance: tt-template
+    statement: >
+      Unused dedicated output pins shall be actively driven low, and unused
+      bidirectional pins shall have their output enables deasserted.
+    description: >
+      To prevent floating CMOS nodes and avoid unpredictable power dissipation or
+      spurious line oscillations, unassigned outputs must be driven to a defined
+      logic low, and unassigned bidirectional pins must remain tri-stated.
+    inputs:
+      - name: pin_active_mask
+        description: Configuration mask indicating assigned pins
+    outputs:
+      - name: uo_out
+        description: Driven low for unassigned bits
+      - name: uio_oe
+        description: Driven 0 for unassigned bits
+    parameters:
+      inactive_output_state: "0 (logic low)"
+      inactive_bidir_state: "High-Z (uio_oe = 0)"
+    acceptance_criteria:
+      - Immediately upon reset, all unassigned `uo_out` pins read logic low.
+      - Immediately upon reset, all `uio_oe` bits read 0.
+    traceability:
+      source_spec: "03-interfaces/sections/gpio-interface/content.md"
+    verification:
+      method: simulation
+      reference_model: "gpio_pad_reference_model"
+      checker: "safe_termination_checker"
+      generic_test_id: "TEST-GPIO-004"

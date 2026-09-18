@@ -1,0 +1,18 @@
+# Pre-commit configuration for the Protocol Emulator ReqSpec.
+# One-time setup: pip install -r requirements-dev.txt && pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: validate-reqspec
+        name: Validate ReqSpec
+        entry: python3 requirements/tools/validate_reqspec.py
+        language: system
+        files: ^(requirements/|architectures/)
+        pass_filenames: false
+
+      - id: check-frozen-contract
+        name: Check frozen contract and intents
+        entry: python3 requirements/tools/select_contract.py --quiet --intents verification/intent
+        language: system
+        files: ^(requirements/|verification/|architectures/)
+        pass_filenames: false

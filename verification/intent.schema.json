@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/edawise/jane-street-protocol-emulator/verification/intent.schema.json",
+  "title": "Protocol Emulator - Architecture-Independent Intent Schema",
+  "description": "FROZEN INTERFACE between the behavioral reference model (Phase II) and the generic verification environment (Phase III). An intent states required pin-level behaviour in protocol terms only. It MUST NOT reference an instruction set, register map, CSR address, opcode, channel count, or a physical pin index. The role -> physical-pin binding is supplied per architecture by a swappable adapter ('intent compiler'), so this schema can remain unchanged across architecture candidates. Version 1.0.0 is the freeze point: additive change requires a MINOR bump, any semantic change requires a MAJOR bump and re-baselining of the generic testbench.",
+  "type": "object",
+  "required": ["version", "intents"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": "1.0.0" },
+    "frozen": {
+      "type": "boolean",
+      "description": "True once the generic testbench has been baselined against this schema version.",
+      "default": false
+    },
+    "intents": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/intent" }
+    }
+  },
+  "$defs": {
+    "intent": {
+      "type": "object",
+      "required": ["id", "protocol", "roles", "timing", "sequence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^INTENT-[A-Z0-9]+-[0-9]{3}$" },
+        "description": { "type": "string", "minLength": 10 },
+        "requires": {
+          "type": "array",
+          "description": "Requirement IDs this intent exercises. All referenced requirements MUST pass the frozen-contract filter (see requirements/tools/select_contract.py).",
+          "items": { "type": "string", "pattern": "^REQ-[A-Z]+-[0-9]{3}$" }
+        },
+        "protocol": {
+          "enum": ["gpio", "uart", "spi", "i2c", "jtag", "swd", "can", "onewire", "ps2", "usb_ls", "ethernet_10base_t", "other"]
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Abstract signal roles. Names are protocol-standard (tx, rx, sclk, mosi, ...), never physical pin indices.",
+          "items": { "$ref": "#/$defs/role" }
+        },
+        "timing": { "$ref": "#/$defs/timing" },
+        "sequence": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/step" }
+        }
+      }
+    },
+    "role": {
+      "type": "object",
+      "required": ["name", "direction"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "direction": { "enum": ["in", "out", "bidir"] },
+        "description": { "type": "string" }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "required": ["resolution"],
+      "additionalProperties": false,
+      "properties": {
+        "resolution": {
+          "enum": ["cycle", "ns"],
+          "description": "Unit for all 'duration'/'within' fields in this intent. 'cycle' is expressed in system clock cycles at the architecture's clock; 'ns' is absolute time."
+        },
+        "bit_rate_hz": { "type": ["number", "null"] },
+        "clock_hz": { "type": ["number", "null"] },
+        "sample_point_pct": { "type": ["number", "null"] },
+        "tolerance_pct": { "type": ["number", "null"] },
+        "mode": {
+          "type": "object",
+          "description": "Protocol-specific mode settings, e.g. {\"cpol\": 0, \"cpha\": 0} for SPI or {\"data_bits\": 8, \"parity\": \"none\", \"stop_bits\": 1} for UART.",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "required": ["op"],
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": [
+            "drive_level",
+            "drive_byte",
+            "expect_level",
+            "expect_byte",
+            "expect_idle",
+            "wait_cycles",
+            "sample"
+          ]
+        },
+        "role": { "type": "string" },
+        "level": { "enum": [0, 1, "z"] },
+        "value": { "type": ["integer", "string", "null"] },
+        "within": {
+          "type": ["number", "null"],
+          "description": "Permitted deviation, in timing.resolution units, before the step is a failure."
+        },
+        "duration": { "type": ["number", "null"] },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

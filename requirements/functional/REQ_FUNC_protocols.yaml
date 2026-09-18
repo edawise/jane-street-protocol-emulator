@@ -1,0 +1,351 @@
+# Functional Requirements: Core Protocols
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-FUNC-001
+    category: functional
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: external-standard
+    statement: >
+      The protocol emulator shall be capable of generating asynchronous serial
+      (UART) transmission on any assigned output or bidirectional pin.
+    description: >
+      The emulator must serialize parallel data into standard UART framing:
+      1 start bit (logic low), 5 to 8 data bits (LSB first), optional parity
+      bit (even, odd, or none), and 1 or 2 stop bits (logic high). The bit
+      period must be configurable and timing-accurate without cumulative drift.
+    inputs:
+      - name: tx_data
+        width: 8
+        description: Parallel byte payload to transmit
+      - name: baud_config
+        description: Timing divisor or period definition for target baud rate
+      - name: framing_config
+        description: Data bits (5-8), parity mode, stop bits (1-2)
+    outputs:
+      - name: tx_pin
+        width: 1
+        description: Asynchronous serial TX pin
+    parameters:
+      supported_data_bits: [5, 6, 7, 8]
+      supported_parity: ["none", "even", "odd"]
+      supported_stop_bits: [1, 2]
+      bit_order: "LSB_FIRST"
+    acceptance_criteria:
+      - Validated 8-N-1 transmission at 9600, 19200, 38400, 57600, and 115200 baud.
+      - Start bit falls within 1 clock cycle of scheduled start.
+      - Bit period conforms to specified baud rate within 1.0% error margin.
+      - Stop bit holds high for full programmed duration before next start bit.
+    traceability:
+      source_spec: "external-standard (ITU-T V.24 / EIA-232-F / NS16550A); subject named in js-brief"
+      standards:
+        - id: "ITU-T V.24"
+          title: "ITU-T Recommendation V.24: List of definitions for interchange circuits between data terminal equipment (DTE) and data circuit-terminating equipment (DCE)"
+          url: "https://www.itu.int/rec/T-REC-V.24"
+          governs: ["framing", "bit_order"]
+        - id: "EIA-232-F"
+          title: "EIA/TIA-232-F: Interface Between Data Terminal Equipment and Data Circuit-Terminating Equipment Employing Serial Binary Data Interchange"
+          url: null
+          governs: ["framing", "electrical_levels"]
+        - id: "NS16550A"
+          title: "NS16550A-compatible UART programming model (de-facto industry convention for 5-8 data bits, parity and 1-2 stop bits)"
+          url: null
+          governs: ["supported_data_bits", "supported_parity", "supported_stop_bits", "bit_order"]
+    verification:
+      method: simulation
+      reference_model: "uart_tx_reference_model"
+      checker: "uart_protocol_checker"
+      generic_test_id: "TEST-UART-001"
+
+  - id: REQ-FUNC-002
+    category: functional
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: external-standard
+    statement: >
+      The protocol emulator shall be capable of receiving asynchronous serial
+      (UART) transmissions from any assigned input or bidirectional pin.
+    description: >
+      The emulator must detect the falling edge of a start bit, oversample or
+      time to the midpoint of each bit cell, sample data bits (LSB first),
+      verify parity (if enabled) and stop bits, and present the received word
+      to the host or receive buffer. It must flag framing and parity errors.
+    inputs:
+      - name: rx_pin
+        width: 1
+        description: Asynchronous serial RX pin
+      - name: baud_config
+        description: Timing configuration matching incoming baud rate
+      - name: framing_config
+        description: Expected data bits, parity, stop bits
+    outputs:
+      - name: rx_data
+        width: 8
+        description: Received parallel byte
+      - name: framing_error
+        width: 1
+        description: Asserted if stop bit is not sampled high
+      - name: parity_error
+        width: 1
+        description: Asserted if parity bit does not match configuration
+    parameters:
+      sample_point: "midpoint (50% ± 10% of bit period)"
+      baud_tolerance: "±2.5% frequency error tolerance"
+    acceptance_criteria:
+      - Successful reception and decoding of bytes across 9600 to 115200 baud.
+      - Midpoint sampling verified via waveform inspection against edge transitions.
+      - Framing error generated when stop bit is forced low.
+      - Parity error generated when inverted parity bit is injected.
+    traceability:
+      source_spec: "external-standard (ITU-T V.24 / EIA-232-F / NS16550A); derived from the brief's 'start with UART' — UART defines both receive and transmit"
+      standards:
+        - id: "ITU-T V.24"
+          title: "ITU-T Recommendation V.24: List of definitions for interchange circuits between data terminal equipment (DTE) and data circuit-terminating equipment (DCE)"
+          url: "https://www.itu.int/rec/T-REC-V.24"
+          governs: ["sample_point", "baud_tolerance"]
+        - id: "EIA-232-F"
+          title: "EIA/TIA-232-F: Interface Between Data Terminal Equipment and Data Circuit-Terminating Equipment Employing Serial Binary Data Interchange"
+          url: null
+          governs: ["framing", "electrical_levels"]
+        - id: "NS16550A"
+          title: "NS16550A-compatible UART programming model (de-facto industry convention for 5-8 data bits, parity and 1-2 stop bits)"
+          url: null
+          governs: ["supported_data_bits", "supported_parity", "supported_stop_bits", "framing_error_detection", "parity_error_detection"]
+    verification:
+      method: simulation
+      reference_model: "uart_rx_reference_model"
+      checker: "uart_protocol_checker"
+      generic_test_id: "TEST-UART-002"
+
+  - id: REQ-FUNC-003
+    category: functional
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: external-standard
+    statement: >
+      The protocol emulator shall support Serial Peripheral Interface (SPI)
+      master mode operation across all standard clock polarity and phase modes.
+    description: >
+      In SPI master mode, the device must generate the serial clock (SCLK),
+      drive the active-low chip select (CS_N), serialize output data onto
+      MOSI, and sample input data from MISO. It must support all four SPI modes
+      (CPOL 0/1, CPHA 0/1), configurable bit counts (8-bit and 16-bit frames),
+      and both MSB-first and LSB-first shift directions.
+    inputs:
+      - name: tx_data
+        width: 16
+        description: Word to transmit
+      - name: miso_pin
+        width: 1
+        description: Master In Slave Out line
+      - name: spi_config
+        description: CPOL, CPHA, bit_order, clock_divider, word_length
+    outputs:
+      - name: sclk_pin
+        width: 1
+        description: Serial Clock line
+      - name: mosi_pin
+        width: 1
+        description: Master Out Slave In line
+      - name: cs_n_pin
+        width: 1
+        description: Active-low chip select line
+      - name: rx_data
+        width: 16
+        description: Word received simultaneously on MISO
+    parameters:
+      cpol_modes: [0, 1]
+      cpha_modes: [0, 1]
+      bit_orders: ["MSB_FIRST", "LSB_FIRST"]
+      word_lengths: [8, 16]
+    acceptance_criteria:
+      - "Mode 0 (CPOL=0, CPHA=0): SCLK idle low, MOSI driven on falling edge, MISO sampled on rising edge."
+      - "Mode 1 (CPOL=0, CPHA=1): SCLK idle low, MOSI driven on rising edge, MISO sampled on falling edge."
+      - "Mode 2 (CPOL=1, CPHA=0): SCLK idle high, MOSI driven on rising edge, MISO sampled on falling edge."
+      - "Mode 3 (CPOL=1, CPHA=1): SCLK idle high, MOSI driven on falling edge, MISO sampled on rising edge."
+      - CS_N setup time (CS_N low to first SCLK edge) >= 0.5 SCLK period.
+      - CS_N hold time (last SCLK edge to CS_N high) >= 0.5 SCLK period.
+    traceability:
+      source_spec: "external-standard (Motorola SPI Block Guide V03.06); subject named in js-brief"
+      standards:
+        - id: "MOT-SPI-V03.06"
+          title: "Motorola SPI Block Guide V03.06 (normative definition of CPOL/CPHA transfer modes)"
+          url: null
+          governs: ["cpol_modes", "cpha_modes", "bit_orders", "word_lengths"]
+    verification:
+      method: simulation
+      reference_model: "spi_master_reference_model"
+      checker: "spi_protocol_checker"
+      generic_test_id: "TEST-SPI-001"
+
+  - id: REQ-FUNC-004
+    category: functional
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator should support Serial Peripheral Interface (SPI)
+      slave mode operation with clock edge synchronization and chip-select gating.
+    description: >
+      In SPI slave mode, the device must monitor an external CS_N, shift out
+      data on MISO in response to incoming SCLK transitions, and sample MOSI
+      according to programmed CPOL/CPHA.
+    inputs:
+      - name: sclk_pin
+        width: 1
+        description: External Serial Clock
+      - name: cs_n_pin
+        width: 1
+        description: External Chip Select
+      - name: mosi_pin
+        width: 1
+        description: External Master Out line
+      - name: tx_data
+        width: 16
+        description: Preloaded response payload
+    outputs:
+      - name: miso_pin
+        width: 1
+        description: Slave Out line (tri-stated when CS_N is high)
+      - name: rx_data
+        width: 16
+        description: Captured MOSI payload
+    parameters:
+      cpol_modes: [0, 1]
+      cpha_modes: [0, 1]
+      target_clock_rate: "Up to 10 MHz (engineered verification target, not externally mandated)"
+    acceptance_criteria:
+      - MISO held in high-impedance / tri-state while CS_N is deasserted.
+      - Immediate response to SCLK edges within setup/hold constraints.
+      - Full-duplex loopback with SPI master at the engineered target rate (<= 10 MHz).
+    traceability:
+      source_spec: "08-reference-protocols/sections/spi/content.md"
+    verification:
+      method: simulation
+      reference_model: "spi_slave_reference_model"
+      checker: "spi_protocol_checker"
+      generic_test_id: "TEST-SPI-002"
+
+  - id: REQ-FUNC-005
+    category: functional
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: external-standard
+    statement: >
+      The protocol emulator shall support I2C (Inter-Integrated Circuit) master mode
+      generating START, repeated START, STOP conditions, address/data transfer, and
+      ACK/NACK detection.
+    description: >
+      The emulator must operate as an I2C bus master driving SCL and bidirectional
+      SDA. It must sequence START (SDA falling while SCL high), address/RW transmission,
+      slave ACK/NACK sampling on the 9th clock cycle, payload byte transfer, and
+      STOP (SDA rising while SCL high).
+    inputs:
+      - name: address
+        width: 7
+        description: 7-bit slave address
+      - name: rw_bit
+        width: 1
+        description: 0 = Write, 1 = Read
+      - name: tx_payload
+        width: 8
+        description: Byte array to write
+    outputs:
+      - name: scl_pin
+        width: 1
+        description: Serial Clock line
+      - name: sda_pin
+        width: 1
+        description: Serial Data line
+      - name: ack_received
+        width: 1
+        description: Flag indicating ACK (0) or NACK (1) on 9th clock
+      - name: rx_payload
+        width: 8
+        description: Bytes read from slave
+    parameters:
+      bus_speeds: ["100kHz (Standard-mode)", "400kHz (Fast-mode)"]
+      addressing_mode: "7-bit (10-bit optional via firmware sequence)"
+    acceptance_criteria:
+      - Valid START and STOP framing conforming to NXP I2C bus specification.
+      - SDA transitions occur only when SCL is low, except during START and STOP.
+      - Slave ACK (low on 9th cycle) correctly latched; NACK (high) handled by abort/restart.
+      - Read and write transactions validated against an I2C slave memory behavioral model.
+    traceability:
+      source_spec: "external-standard (NXP UM10204); subject named in js-brief"
+      standards:
+        - id: "NXP-UM10204"
+          title: "NXP UM10204: I2C-bus specification and user manual"
+          url: "https://www.nxp.com/docs/en/user-guide/UM10204.pdf"
+          governs: ["bus_speeds", "addressing_mode", "start_stop_conditions", "ack_nack_sampling"]
+    verification:
+      method: simulation
+      reference_model: "i2c_master_reference_model"
+      checker: "i2c_protocol_checker"
+      generic_test_id: "TEST-I2C-001"
+
+  - id: REQ-FUNC-006
+    category: functional
+    priority: MUST
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The protocol emulator shall support I2C open-drain bus emulation and clock
+      stretching synchronization.
+    description: >
+      Because ASIC pad drivers on Tiny Tapeout are push-pull, open-drain behavior
+      shall be emulated by driving logic 0 (pad asserted low, output enable active)
+      and releasing to logic 1 (tri-state / high impedance, allowing external pull-up
+      resistor to pull line high). The master must monitor SCL during high periods
+      and pause clock generation if a slave holds SCL low (clock stretching).
+    inputs:
+      - name: scl_sense
+        width: 1
+        description: Feedback readback of SCL pin
+      - name: sda_sense
+        width: 1
+        description: Feedback readback of SDA pin
+    outputs:
+      - name: scl_drive_low
+        width: 1
+        description: Active drive low for SCL
+      - name: scl_oe
+        width: 1
+        description: Output enable for SCL (0 = float/pull-up, 1 = drive low)
+      - name: sda_drive_low
+        width: 1
+        description: Active drive low for SDA
+      - name: sda_oe
+        width: 1
+        description: Output enable for SDA (0 = float/pull-up, 1 = drive low)
+    parameters:
+      clock_stretch_timeout: "Configurable cycle count before timeout error (engineered: default 100 SCL periods)"
+    acceptance_criteria:
+      - Neither SCL nor SDA is ever actively driven to push-pull logic high.
+      - When SCL is released to float high, the emulator delays state advancement until scl_sense reads logic 1.
+      - Slave clock stretching of up to 100 SCL periods handled without data corruption or bus lockup.
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 08-reference-protocols/sections/i2c/content.md"
+      standards:
+        - id: "NXP-UM10204"
+          title: "NXP UM10204: I2C-bus specification and user manual"
+          url: "https://www.nxp.com/docs/en/user-guide/UM10204.pdf"
+          governs: ["open_drain_emulation", "clock_stretching"]
+    verification:
+      method: simulation
+      reference_model: "i2c_open_drain_reference_model"
+      checker: "i2c_bus_checker"
+      generic_test_id: "TEST-I2C-002"

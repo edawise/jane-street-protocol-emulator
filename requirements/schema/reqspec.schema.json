@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Jane Street Protocol Emulator ReqSpec Schema",
+  "type": "object",
+  "anyOf": [
+    { "required": ["requirements"] },
+    { "required": ["decisions"] },
+    { "required": ["ambiguities"] }
+  ],
+  "properties": {
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "priority",
+          "status",
+          "arch_scope",
+          "obligation",
+          "source_provenance",
+          "statement",
+          "description",
+          "inputs",
+          "outputs",
+          "parameters",
+          "acceptance_criteria",
+          "traceability",
+          "verification"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "functional",
+              "timing",
+              "interface",
+              "physical",
+              "performance",
+              "optional",
+              "verification"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["MUST", "SHOULD", "MAY"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["CONFIRMED", "ASSUMED", "AMBIGUOUS"]
+          },
+          "arch_scope": {
+            "type": "string",
+            "description": "Architecture-filter axis for the frozen verification contract. 'independent' = architecture-neutral behavioral contract; 'constrained' = fixed by the Tiny Tapeout harness/template but still architecture-neutral; 'architecture-scoped' = imposes a capability on the design (a channel count, a host link, a delay primitive) that is portable across candidates of the intended class; 'candidate-specific' = true only for one named candidate, e.g. an exact lane count or opcode encoding. Both scoped values are EXCLUDED from the architecture-independent reference model and the generic testbench.",
+            "enum": ["independent", "constrained", "architecture-scoped", "candidate-specific"]
+          },
+          "obligation": {
+            "type": "string",
+            "enum": ["external", "internal"],
+            "description": "Who imposes this obligation, and therefore whether it belongs to the frozen contract. 'external' = required by the competition brief, a published standard, or the harness; 'internal' = self-imposed by this project. Independent of `priority`: a requirement can be MUST (binding within the design) and internal (not externally imposed) at the same time, and often is."
+          },
+          "source_provenance": {
+            "type": "string",
+            "description": "Document that is the source of the requirement content, at REQUIREMENT granularity. js-brief = Jane Street blog post; tt-template = linked Tiny Tapeout template/docs; external-standard = published industry standard; specialist-spec/engineered = self-imposed (internal). Finer-grained parameter provenance is recorded in traceability.standards.",
+            "enum": [
+              "js-brief",
+              "tt-template",
+              "external-standard",
+              "specialist-spec",
+              "engineered"
+            ]
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 20
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20
+          },
+          "inputs": {
+            "type": "array"
+          },
+          "outputs": {
+            "type": "array"
+          },
+          "parameters": {
+            "type": "object"
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "traceability": {
+            "type": "object",
+            "required": ["source_spec"],
+            "properties": {
+              "source_spec": { "type": "string" },
+              "standards": {
+                "type": "array",
+                "description": "External published standards governing specific parameters of this requirement. These are architecture-independent and belong to the frozen verification contract.",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "title", "governs"],
+                  "properties": {
+                    "id": { "type": "string", "minLength": 2 },
+                    "title": { "type": "string", "minLength": 5 },
+                    "url": { "type": ["string", "null"] },
+                    "governs": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "minItems": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "verification": { "$ref": "#/$defs/verification" },
+          "file_source": {
+            "type": "string",
+            "description": "Originating modular YAML file path, optional in catalog exports"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/architectural_decision" }
+    },
+    "ambiguities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ambiguity" }
+    }
+  },
+  "$defs": {
+    "verification": {
+      "type": "object",
+      "required": ["method", "generic_test_id"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "simulation",
+            "formal",
+            "timing_analysis",
+            "synthesis_report",
+            "physical_drc_lvs",
+            "review"
+          ]
+        },
+        "reference_model": { "type": ["string", "null"] },
+        "checker": { "type": ["string", "null"] },
+        "generic_test_id": {
+          "type": "string",
+          "pattern": "^TEST-[A-Z0-9]+-[0-9]{3}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "architectural_decision": {
+      "type": "object",
+      "description": "A choice made by a concrete candidate architecture. Decision documents live under architectures/<candidate>/decisions.yaml, not in the requirements tree, because they are one instantiation rather than a statement of the problem.",
+      "required": [
+        "id",
+        "title",
+        "decision",
+        "rationale",
+        "impacted_modules",
+        "satisfies_reqs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ARCH-[A-Z0-9]+-[0-9]{3}$"
+        },
+        "title": { "type": "string", "minLength": 5 },
+        "decision": { "type": "string", "minLength": 20 },
+        "rationale": { "type": "string", "minLength": 20 },
+        "impacted_modules": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "satisfies_reqs": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^REQ-[A-Z]+-[0-9]{3}$" }
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "description": "Required when satisfies_reqs is empty: a standalone architecture decision is not derived from any requirement, so it must state its own pass/fail criteria.",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "verification": {
+          "$ref": "#/$defs/verification",
+          "description": "Required when satisfies_reqs is empty, so that no capability becomes untestable."
+        }
+      },
+      "additionalProperties": false
+    },
+    "ambiguity": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "status",
+        "description",
+        "impact",
+        "resolution",
+        "verification_check"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^AMB-[0-9]{3}$"
+        },
+        "title": { "type": "string", "minLength": 5 },
+        "status": { "type": "string", "enum": ["OPEN", "RESOLVED"] },
+        "description": { "type": "string", "minLength": 20 },
+        "impact": { "type": "string", "minLength": 20 },
+        "resolution": { "type": "string", "minLength": 20 },
+        "verification_check": { "type": "string", "minLength": 10 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

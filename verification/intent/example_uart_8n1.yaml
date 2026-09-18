@@ -1,0 +1,56 @@
+# Example intent: UART transmit, 8-N-1, 9600 baud.
+#
+# This file is NOT a test and NOT a program. It is a statement of required
+# pin-level behaviour in protocol terms, validated against ../intent.schema.json.
+# It contains no ISA instruction, register address, channel number, or physical
+# pin index. An architecture supplies its own intent->program compiler to bind
+# the abstract roles below to real pins and firmware.
+version: "1.0.0"
+frozen: false
+
+intents:
+  - id: INTENT-UART-001
+    description: >
+      Transmit the single byte 0x55 as a standard 8-N-1 UART frame and observe
+      the frame on the transmit role.
+    requires:
+      - REQ-FUNC-001
+      - REQ-PERF-001
+    protocol: uart
+    roles:
+      - name: tx
+        direction: out
+        description: Asynchronous serial transmit line (idles high)
+    timing:
+      resolution: cycle
+      bit_rate_hz: 9600
+      tolerance_pct: 1.0
+      mode:
+        data_bits: 8
+        parity: none
+        stop_bits: 1
+        bit_order: lsb_first
+    sequence:
+      - op: expect_idle
+        role: tx
+        level: 1
+        note: Line idles high before the frame.
+      - op: expect_level
+        role: tx
+        level: 0
+        duration: 1
+        within: 0
+        note: Start bit.
+      - op: expect_byte
+        role: tx
+        value: "0x55"
+        note: 8 data bits, LSB first.
+      - op: expect_level
+        role: tx
+        level: 1
+        duration: 1
+        within: 0
+        note: Stop bit.
+      - op: expect_idle
+        role: tx
+        level: 1

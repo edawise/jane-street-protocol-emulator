@@ -1,0 +1,81 @@
+# Verification Deliverables Requirements
+# Part of Jane Street Protocol Emulator ReqSpec
+
+requirements:
+  - id: REQ-VERIF-001
+    category: verification
+    priority: SHOULD
+    status: ASSUMED
+    arch_scope: independent
+    obligation: internal
+    source_provenance: specialist-spec
+    statement: >
+      The protocol emulator design should be accompanied by a cycle-accurate software
+      instruction set simulator (ISS) and behavioral reference model that produces
+      bit-identical pin timing and state transitions to the RTL implementation.
+    description: >
+      The competition brief explicitly identifies verification as critical for AI-assisted
+      hardware design. A reference model and ISS should exist that executes candidate programs
+      and models pin transitions, cycle stalls, and register states with bit-level and
+      cycle-level fidelity, serving as the golden comparator for differential verification.
+      This is a self-imposed methodology goal (priority SHOULD); the externally-mandated
+      verification requirement is REQ-VERIF-002 (formal + constrained-random).
+    inputs:
+      - name: candidate_program
+        description: Protocol firmware routine
+      - name: stimulus_vectors
+        description: Input pin transitions and host commands
+    outputs:
+      - name: golden_pin_waveform
+        description: Expected cycle-by-cycle pin states (VCD or transition stream)
+      - name: golden_register_trace
+        description: Expected state transitions across all architectural registers
+    parameters:
+      cycle_accuracy: "Bit-identical matching on every clock edge"
+      simulation_formats: ["VCD", "cycle_events"]
+    acceptance_criteria:
+      - Given identical program and stimulus, differential comparison between ISS output and RTL simulation produces zero mismatches.
+      - Reference model executes independently of the RTL codebase.
+    traceability:
+      source_spec: "01-overview/sections/design-goals/content.md"
+    verification:
+      method: simulation
+      reference_model: "behavioral_iss_model"
+      checker: "differential_waveform_checker"
+      generic_test_id: "TEST-VERIF-001"
+
+  - id: REQ-VERIF-002
+    category: verification
+    priority: SHOULD
+    status: CONFIRMED
+    arch_scope: independent
+    obligation: external
+    source_provenance: js-brief
+    statement: >
+      The verification environment shall demonstrate automated constrained-random
+      test generation and formal property verification covering instruction semantics,
+      data buffering, and pin routing crossbar behaviors.
+    description: >
+      To ensure robust operation across unexpected protocol sequences, the verification
+      suite must incorporate property assertions (SystemVerilog Assertions / formal checks)
+      and constrained-random generation to stress edge cases (e.g. FIFO full/empty boundaries,
+      rapid pin turnaround, illegal instruction traps, and reset during active transmission).
+    inputs:
+      - name: coverage_model
+        description: Functional and cross-coverage definition
+    outputs:
+      - name: verification_report
+        description: Automated test execution report with assertion and coverage statistics
+    parameters:
+      formal_property_coverage: "Core datapath, FIFO handshakes, and crossbar routing"
+    acceptance_criteria:
+      - Automated test suite executes via standard open-source tools (e.g. cocotb / Verilator).
+      - Formal proofs or bounded model checking prove absence of FIFO corruption or crossbar deadlocks.
+      - Functional coverage reaches >= 95% on documented protocol edge cases.
+    traceability:
+      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 01-overview/sections/design-goals/content.md"
+    verification:
+      method: formal
+      reference_model: null
+      checker: "formal_property_suite"
+      generic_test_id: "TEST-VERIF-002"
