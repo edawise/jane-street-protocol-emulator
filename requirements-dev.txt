@@ -1,0 +1,4 @@
+# Validation toolchain for requirements/
+# Usage: pip install -r requirements-dev.txt && python3 requirements/tools/validate_reqspec.py
+PyYAML>=6.0
+jsonschema>=4.18
