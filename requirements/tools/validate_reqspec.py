@@ -15,9 +15,9 @@ Gates (hard failures):
   3. Architectural-decision cross-references: every `satisfies_reqs` names a real
      requirement, and a decision declaring no `satisfies_reqs` must carry its own
      acceptance criteria and verification, so no capability becomes untestable.
-  4. No binding requirement may be orphaned: an architecture-scoped /
-     candidate-specific requirement, or an internal MUST requirement, must be
-     claimed by some candidate decision in `satisfies_reqs`.
+  4. When candidate architectures exist, no binding requirement may be orphaned:
+     an architecture-scoped / candidate-specific requirement, or an internal MUST
+     requirement, must be claimed by some candidate decision in `satisfies_reqs`.
   5. The hand-written overview must not restate derived metrics.
 """
 from __future__ import annotations
@@ -42,7 +42,7 @@ ARCH_ROOT = ROOT / "architectures"
 NON_DOCUMENT_DIRS = {"schema", "tools"}
 
 EXTERNAL_PROVENANCE = {"js-brief", "tt-template", "external-standard"}
-INTERNAL_PROVENANCE = {"engineered", "specialist-spec"}
+INTERNAL_PROVENANCE = {"engineered"}
 # Scopes that are not architecture-neutral, so they must be claimed by a decision.
 SCOPED = {"architecture-scoped", "candidate-specific"}
 
@@ -111,9 +111,11 @@ def main() -> int:
     candidates = [str(p.relative_to(ROOT).parent) for p in arch_paths]
 
     if not arch_docs:
-        errors.append(
-            f"no candidate decision documents found under {ARCH_ROOT.relative_to(ROOT)}/"
-            f"<candidate>/decisions.yaml"
+        print(
+            f"note: no candidate architectures yet (none under "
+            f"{ARCH_ROOT.relative_to(ROOT)}/<candidate>/decisions.yaml); "
+            f"architecture-scoped requirements are unclaimed, which is expected at this stage",
+            file=sys.stderr,
         )
 
     # 1) JSON Schema validation. Bail out on failure: a document with, say,
@@ -165,16 +167,19 @@ def main() -> int:
     #    items are goals, not requirements, and need no realisation. The link is
     #    recorded only on the candidate side, so the requirements tree never has
     #    to name a candidate.
-    satisfied = {rid for d in decisions for rid in d["satisfies_reqs"]}
-    for r in reqs:
-        if (r["arch_scope"] in SCOPED
-                or (r["obligation"] == "internal" and r["priority"] == "MUST")) \
-                and r["id"] not in satisfied:
-            errors.append(
-                f"{r['id']} ({r['arch_scope']}, {r['obligation']}, {r['priority']}): "
-                f"binding but not in the frozen contract and not claimed by any "
-                f"decision in satisfies_reqs"
-            )
+    # The orphan check only applies once candidates exist: at the requirements-only
+    # stage there is legitimately nothing to claim the architecture-scoped items.
+    if decisions:
+        satisfied = {rid for d in decisions for rid in d["satisfies_reqs"]}
+        for r in reqs:
+            if (r["arch_scope"] in SCOPED
+                    or (r["obligation"] == "internal" and r["priority"] == "MUST")) \
+                    and r["id"] not in satisfied:
+                errors.append(
+                    f"{r['id']} ({r['arch_scope']}, {r['obligation']}, {r['priority']}): "
+                    f"binding but not in the frozen contract and not claimed by any "
+                    f"decision in satisfies_reqs"
+                )
 
     # 5) The hand-written overview must not restate derived metrics. The file is
     #    non-normative, so its absence is not a validation failure: skip the lint

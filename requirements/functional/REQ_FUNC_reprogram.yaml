@@ -34,7 +34,7 @@ requirements:
       - After fabrication, a new protocol routine is deployed by reloading firmware only, with no change to the bitstream or GDS.
       - "Secondary structural check: no dedicated hardwired UART/SPI/I2C controller is present in the synthesised netlist."
     traceability:
-      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 01-overview/sections/about-pex/content.md"
+      source_spec: "js-brief #the-challenge — 'implement a real protocol in firmware rather than in fixed logic'; 'reprogrammable enough to support new protocols after fabrication'"
     verification:
       method: simulation
       reference_model: "programmable_core_reference_model"

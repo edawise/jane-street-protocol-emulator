@@ -32,7 +32,7 @@ requirements:
       - LVS (Layout Versus Schematic) reports clean match against synthesized netlist.
       - Zero proprietary or encrypted third-party IP cores.
     traceability:
-      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 01-overview/sections/constraints/content.md"
+      source_spec: "js-brief #the-rules — Process: IHP 130 nm CMOS5L via Tiny Tapeout (cmos5l template)"
     verification:
       method: physical_drc_lvs
       reference_model: null
@@ -54,11 +54,10 @@ requirements:
       The competition brief explicitly specifies: "Set the tile size in info.yaml to 6x4"
       and notes "The current maximum area is 6x4 tiles per design. We are working on the
       possibility of scaling up to 8x4 tiles (~30% more area)." The primary mandatory
-      constraint is 6x4 tiles (~24K cells total). The imported specialist specification
-      instead asserts 8x4 / 32K as settled; that is stale and is recorded in AMB-005.
-      The brief is authoritative. The self-imposed cell-count margin that reserves
-      headroom for clock-tree buffers and routing is a separate internal requirement
-      (REQ-PHYS-006), not part of the external tile mandate.
+      constraint is 6x4 tiles (~24K cells total); the 8x4 scale-up is conditional, not
+      settled. The self-imposed cell-count margin that reserves headroom for clock-tree
+      buffers and routing is a separate internal requirement (REQ-PHYS-006), not part of
+      the external tile mandate.
     inputs:
       - name: mapped_netlist
         description: Gate-level netlist produced by Yosys
@@ -75,7 +74,7 @@ requirements:
       - Post-synthesis utilisation fits within the 6x4 tile allocation with no overrun.
       - Detailed routing completes with 0 shorts, 0 opens, and routing congestion < 100%.
     traceability:
-      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ (rules: tile size / area) | supersedes: 01-overview/sections/constraints/content.md, which is stale on this point (AMB-005)"
+      source_spec: "js-brief #the-rules — Process ('set tile size to 6x4') + Area (6x4, possible 8x4)"
     verification:
       method: synthesis_report
       reference_model: null
@@ -148,7 +147,7 @@ requirements:
       - Combined core logic plus memory macro footprint fits inside the 6x4 tile boundary.
       - Memory timing permits single-cycle synchronous instruction fetch at 50 MHz.
     traceability:
-      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 01-overview/sections/constraints/content.md"
+      source_spec: "js-brief #how-much-fits — 'SRAM can be more area-efficient than flip-flops'"
     verification:
       method: synthesis_report
       reference_model: null
@@ -185,7 +184,7 @@ requirements:
       - Hold WNS >= 0.0 ns on fast corner.
       - No max transition or max capacitance DRC violations on clock nets.
     traceability:
-      source_spec: "01-overview/sections/constraints/content.md"
+      source_spec: "tt-template (src/config.json CLOCK_PERIOD=20 → 50 MHz) + TT FAQ"
     verification:
       method: timing_analysis
       reference_model: null
@@ -232,7 +231,7 @@ requirements:
       - The license permits reuse and derivative works with no NDA or proprietary restriction.
       - Source files carry an SPDX-License-Identifier header naming the selected license.
     traceability:
-      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: js-brief (https://blog.janestreet.com/protocol-emulator-asic-competition/, rules: Open source); specialist spec 01-overview/sections/about-pex/content.md R-PEX-04"
+      source_spec: "js-brief #the-rules — Open source"
     verification:
       method: review
       reference_model: null

@@ -66,12 +66,11 @@
           },
           "source_provenance": {
             "type": "string",
-            "description": "Document that is the source of the requirement content, at REQUIREMENT granularity. js-brief = Jane Street blog post; tt-template = linked Tiny Tapeout template/docs; external-standard = published industry standard; specialist-spec/engineered = self-imposed (internal). Finer-grained parameter provenance is recorded in traceability.standards.",
+            "description": "Document that is the source of the requirement content, at REQUIREMENT granularity. js-brief = Jane Street blog post; tt-template = linked Tiny Tapeout template/docs; external-standard = published industry standard; engineered = self-imposed (internal). Finer-grained parameter provenance is recorded in traceability.standards.",
             "enum": [
               "js-brief",
               "tt-template",
               "external-standard",
-              "specialist-spec",
               "engineered"
             ]
           },

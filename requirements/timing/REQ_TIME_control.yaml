@@ -8,7 +8,7 @@ requirements:
     status: ASSUMED
     arch_scope: independent
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator shall incorporate a free-running monotonic cycle
       counter running at the full system clock rate, accessible to firmware and host.
@@ -36,7 +36,7 @@ requirements:
       - Timestamp does not pause during routine execution stalls or clock prescaling.
       - Counter value is readable atomically (no tearing) at the architecture-defined width.
     traceability:
-      source_spec: "02-architecture/sections/timing-engine/content.md"
+      source_spec: "engineered — the brief's 'counting cycles' implies a time base; width/access are architecture decisions"
     verification:
       method: simulation
       reference_model: "timestamp_reference_model"

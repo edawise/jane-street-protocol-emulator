@@ -33,7 +33,7 @@ requirements:
       - Bit-stuffed NRZI waveform produced on D+/D- matching USB 2.0 Low Speed physical specification.
       - EOP (SE0 followed by J-state idle) properly driven at end of packet.
     traceability:
-      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 08-reference-protocols/sections/stretch-goals/content.md"
+      source_spec: "js-brief #the-challenge — 'Stretch goals include low-speed USB'"
     verification:
       method: simulation
       reference_model: "usb_ls_reference_model"
@@ -69,7 +69,7 @@ requirements:
       - Manchester-encoded output with mid-bit transitions verified on every bit cell.
       - Preamble sequence decoded cleanly by a 10BASE-T receiver model.
     traceability:
-      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 08-reference-protocols/sections/stretch-goals/content.md"
+      source_spec: "js-brief #the-challenge — 'Stretch goals include … 10Mbit Ethernet'"
     verification:
       method: simulation
       reference_model: "manchester_reference_model"
@@ -82,7 +82,7 @@ requirements:
     status: ASSUMED
     arch_scope: independent
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator may support Controller Area Network (CAN) bus bit timing,
       dominant/recessive bit generation, and bus arbitration sampling up to 1 Mbit/s.
@@ -103,7 +103,7 @@ requirements:
       - Dominant bit (drive 0) overrides recessive bit (float 1).
       - Detection of arbitration loss halts transmission without corrupting bus.
     traceability:
-      source_spec: "08-reference-protocols/sections/stretch-goals/content.md (CAN is named in the brief only as a protocol 'to consider', which is non-normative)"
+      source_spec: "engineered — CAN is named in js-brief #the-challenge only as 'to consider' (non-normative)"
     verification:
       method: simulation
       reference_model: "can_bus_reference_model"
@@ -116,7 +116,7 @@ requirements:
     status: ASSUMED
     arch_scope: independent
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator may support single-wire pulse-width protocols (e.g.
       Dallas/Maxim 1-Wire or WS2812 RGB LED protocol) requiring microsecond and
@@ -127,7 +127,7 @@ requirements:
       1-Wire requires reset pulses (480 µs) and time slots (60 µs). The emulator
       may demonstrate precise pulse shaping for these buses. Note: 1-Wire and WS2812
       are not named in the competition brief (which lists JTAG, SWD, PS/2, and CAN);
-      this is a self-imposed optional extension from the imported specification.
+      this is a self-imposed optional extension.
     inputs:
       - name: led_data
         description: 24-bit GRB color values
@@ -140,7 +140,7 @@ requirements:
       - High and low pulse durations strictly conform to WS2812 timing table.
       - Reset latch pulse (> 50 µs low) successfully triggers latch.
     traceability:
-      source_spec: "08-reference-protocols/sections/stretch-goals/content.md"
+      source_spec: "engineered — 1-Wire/WS2812 are not named in the brief; self-imposed stress test"
     verification:
       method: simulation
       reference_model: "ws2812_reference_model"
@@ -153,7 +153,7 @@ requirements:
     status: ASSUMED
     arch_scope: independent
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator may support JTAG (IEEE 1149.1) and ARM SWD debug probe
       protocol bit-banging.
@@ -178,7 +178,7 @@ requirements:
       - Readout of 32-bit IDCODE register from JTAG TAP model.
       - The TAP controller and shift path operate correctly at the documented maximum TCK rate of 10 MHz.
     traceability:
-      source_spec: "08-reference-protocols/sections/stretch-goals/content.md (JTAG and SWD are named in the brief only as protocols 'to consider', which is non-normative)"
+      source_spec: "engineered — JTAG/SWD are named in js-brief only as 'to consider' (non-normative)"
     verification:
       method: simulation
       reference_model: "jtag_tap_reference_model"
@@ -191,7 +191,7 @@ requirements:
     status: ASSUMED
     arch_scope: independent
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator may support real-time bus sniffing / protocol analysis
       and deterministic bus fault injection.
@@ -214,7 +214,7 @@ requirements:
       - Sniffer captures all transitions with accurate timestamps up to buffer bandwidth.
       - Fault injector produces single-cycle (20 ns) glitch on command.
     traceability:
-      source_spec: "08-reference-protocols/sections/stretch-goals/content.md"
+      source_spec: "engineered — from the brief's non-normative 'show us anything else your architecture makes possible'"
     verification:
       method: simulation
       reference_model: "fault_injector_reference_model"
@@ -227,12 +227,12 @@ requirements:
     status: ASSUMED
     arch_scope: independent
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The design should demonstrate at least one protocol beyond UART, SPI, and I2C,
       selected from JTAG, SWD, PS/2, CAN, 1-Wire, or another bit-banged bus.
     description: >
-      Derived from source rule R-GOAL-04 (priority: should). The brief only says
+      The brief only says
       "Other interesting protocols to consider", which is non-normative; this
       compound obligation ("at least one") is therefore self-imposed, not externally
       mandated. Satisfying any one of REQ-OPT-003, REQ-OPT-004, or REQ-OPT-005
@@ -248,7 +248,7 @@ requirements:
     acceptance_criteria:
       - At least one non-UART/SPI/I2C protocol is demonstrated end-to-end (or to its documented bit-level scope).
     traceability:
-      source_spec: "specialist-spec: 08-reference-protocols/sections/stretch-goals/content.md (R-GOAL-04); brief only says 'consider'"
+      source_spec: "engineered — self-imposed 'at least one' obligation; the brief only says 'to consider'"
     verification:
       method: simulation
       reference_model: "protocol_demo_reference_model"
@@ -261,13 +261,13 @@ requirements:
     status: ASSUMED
     arch_scope: independent
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       Low-Speed USB (1.5 Mbit/s) and/or 10BASE-T Ethernet (10 Mbit/s) bit-level
       signalling should be demonstrated in addition to at least one of
       JTAG, SWD, PS/2, CAN, or 1-Wire.
     description: >
-      Derived from source rule R-STR-01 (priority: should). The brief's own stretch
+      The brief's own stretch
       statement ("Stretch goals include low-speed USB and 10Mbit Ethernet") is
       captured by REQ-OPT-001/002; the "plus at least one other protocol" clause here
       is self-imposed. Bit-level-only scope for Ethernet and USB Full-Speed is
@@ -285,7 +285,7 @@ requirements:
       - USB Low-Speed bit-level framing and/or 10BASE-T Manchester framing is demonstrated and documented as bit-level-only where applicable.
       - At least one of JTAG, SWD, PS/2, CAN, or 1-Wire is also demonstrated.
     traceability:
-      source_spec: "specialist-spec: 08-reference-protocols/sections/stretch-goals/content.md (R-STR-01)"
+      source_spec: "engineered — self-imposed conjunction; the USB/Ethernet half is js-brief stretch goals"
     verification:
       method: simulation
       reference_model: "stretch_scope_reference_model"

@@ -18,7 +18,7 @@ In accordance with the governance principles defined in `README.md`, all normati
 
 - **Requirements (architecture-neutral):** [`functional/`](./functional/), [`timing/`](./timing/), [`interfaces/`](./interfaces/), [`physical/`](./physical/), [`performance/`](./performance/), [`optional/`](./optional/), [`verification/`](./verification/)
 - **Architecture-scoped requirements:** [`architecture/REQ_ARCH_scoped.yaml`](./architecture/REQ_ARCH_scoped.yaml)
-- **Candidate decisions (separate tree):** [`../architectures/candidate_001/decisions.yaml`](../architectures/candidate_001/decisions.yaml)
+- **Candidate decisions (separate tree):** [`../architectures/<candidate>/decisions.yaml`](../architectures/)
 - **Ambiguities & open issues:** [`ambiguities/AMB_spec_open_issues.yaml`](./ambiguities/AMB_spec_open_issues.yaml)
 - **JSON Schema:** [`schema/reqspec.schema.json`](./schema/reqspec.schema.json)
 - **Validation tool:** `pip install -r requirements-dev.txt && python3 requirements/tools/validate_reqspec.py`
@@ -108,8 +108,8 @@ requirements/
 │   └── AMB_spec_open_issues.yaml       # Open/resolved specification gaps with technical rationales
 
 ../architectures/                       # Candidate solutions (separate tree)
-└── candidate_001/
-    └── decisions.yaml                  # Candidate 001 (PEX) microarchitectural decisions
+└── <candidate>/
+    └── decisions.yaml                  # one candidate's microarchitectural decisions
 ```
 
 ---

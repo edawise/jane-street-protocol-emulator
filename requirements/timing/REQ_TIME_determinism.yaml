@@ -36,7 +36,7 @@ requirements:
       - Given the same initial state and input sequence, pin transitions occur on the exact same clock cycles across RTL simulation, gate-level simulation, and silicon.
       - Every documented operation has a single, fixed integer cycle cost that does not depend on data values or execution history.
     traceability:
-      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 01-overview/sections/about-pex/content.md"
+      source_spec: "js-brief #the-challenge — 'hitting timing precisely enough to implement a real protocol in firmware'"
     verification:
       method: simulation
       reference_model: "cycle_accurate_execution_reference_model"
@@ -74,7 +74,7 @@ requirements:
       - For a 1000-byte UART transmission at 115200 baud, the total elapsed clock cycles match the exact theoretical integer cycle product with zero accumulated drift cycles.
       - Periodic square waves (e.g. SPI SCLK) maintain constant 50% duty cycle without drifting phase relative to the system clock.
     traceability:
-      source_spec: "04-isa/sections/timing-control/content.md"
+      source_spec: "engineered — self-imposed: delay-engine rounding must not accumulate over long frames"
     verification:
       method: simulation
       reference_model: "waveform_timing_reference_model"

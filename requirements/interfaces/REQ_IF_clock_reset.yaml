@@ -30,7 +30,7 @@ requirements:
       - Static timing analysis closes without setup or hold violations at 50 MHz under worst-case PVT corners.
       - Full-chip simulation verifies zero inter-clock CDC synchronizers required for core datapath.
     traceability:
-      source_spec: "03-interfaces/sections/clock-reset/content.md"
+      source_spec: "tt-template (src/config.json CLOCK_PERIOD=20 → 50 MHz) + TT FAQ ('top clock speed? At least 50MHz')"
     verification:
       method: timing_analysis
       reference_model: null
@@ -73,7 +73,7 @@ requirements:
       - Deasserting `rst_n` asynchronously does not violate setup/hold recovery timing at registers.
       - Upon reset deassertion, system enters defined bootstrap state cleanly.
     traceability:
-      source_spec: "03-interfaces/sections/clock-reset/content.md"
+      source_spec: "tt-template (src/project.v rst_n 'low to reset') + TT FAQ (nreset low to reset)"
     verification:
       method: simulation
       reference_model: "reset_controller_reference_model"

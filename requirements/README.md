@@ -10,7 +10,7 @@ tagged so it stays out of the verification contract.
 | Document | Count | Top-level key |
 |---|---|---|
 | Requirement | 48 | `requirements:` |
-| Ambiguity | 5 | `ambiguities:` |
+| Ambiguity | 4 | `ambiguities:` |
 
 Architectural decisions live in `../architectures/<candidate>/decisions.yaml`, not here.
 

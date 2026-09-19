@@ -1,9 +1,8 @@
 # Requirements Guide — What Each Item Actually Means
 
 > Plain-English explanation of everything in the ReqSpec: the 48 requirements
-> (`REQ-*`) — 35 architecture-neutral and 13 architecture-scoped — the 5 ambiguities
-> (`AMB-*`), and the 27 architectural decisions (`ARCH-PEX-*`) belonging to candidate 001 in
-> [`../architectures/candidate_001/decisions.yaml`](../architectures/candidate_001/decisions.yaml).
+> (`REQ-*`) — 35 architecture-neutral and 13 architecture-scoped — and the 4 ambiguities
+> (`AMB-*`).
 >
 > Companions: [`PROVENANCE_AUDIT.md`](./PROVENANCE_AUDIT.md) (where each fact comes from)
 > and [`tools/select_contract.py`](./tools/select_contract.py) (the frozen-contract filter).
@@ -20,7 +19,7 @@ Every `REQ-*` carries four tags that tell you how to treat it:
 | `obligation` | `external` / `internal` | Who imposes it: the brief/standard/harness, or us? Independent of `priority`. |
 | `priority` | `MUST` / `SHOULD` / `MAY` | Is it a **requirement** (binding) or a **goal** (elective)? |
 | `status` | `CONFIRMED` / `ASSUMED` / `AMBIGUOUS` | Is it pinned by an external source, or assumed? |
-| `source_provenance` | `js-brief` / `tt-template` / `external-standard` / `specialist-spec` / `engineered` | Where the content came from |
+| `source_provenance` | `js-brief` / `tt-template` / `external-standard` / `engineered` | Where the content came from |
 
 …plus a `verification` block naming the test, checker, and reference model.
 
@@ -34,7 +33,7 @@ arch_scope ∈ {independent, constrained}  AND  obligation = external   →  22 
 Everything else is real work, but it is verified elsewhere so the testbench never changes.
 
 **Reading order below:** Part 1 = the frozen contract. Part 2 = in scope but non-gating.
-Part 3 = architecture-scoped. Parts 4–5 = ambiguities and the PEX architecture.
+Part 3 = architecture-scoped. Part 4 = ambiguities.
 
 ---
 
@@ -181,9 +180,8 @@ These are `constrained`: the microarchitecture is free, but the pad ring is not.
   tiles, 24,000-cell target) only if the organisers confirm the scale-up.
 * **Why:** The brief's Area rule. The 75% figure is *our* margin; the brief only says "leave
   room for clock-tree buffers and routing."
-* **How checked:** `TEST-PHYS-002` — cell-count report ≤18,000 and detailed routing with 0
-  shorts/opens. This is the gate most likely to kill a candidate, so it is checked early
-  (see `ARCH-PEX-024`).
+* **How checked:** `TEST-PHYS-002` — utilisation fits the 6×4 allocation and detailed routing with 0
+  shorts/opens. The ≤18,000-cell margin is checked separately as `TEST-PHYS-006`.
 
 ### REQ-PHYS-003 — Instruction memory must fit
 * **What:** The program-memory subsystem (SRAM macro, latch array, or ROM/RAM hybrid) must
@@ -260,7 +258,7 @@ candidate may pursue or drop). All are `ASSUMED`.
   configuration, with no RTL edit or re-synthesis.
 * **Why:** Follows from the brief's requirement to support new protocols "within its timing
   and I/O constraints" after fabrication. The *mechanism* (e.g. a 16-to-24 crossbar) is left
-  to the architecture — see `ARCH-PEX-003`.
+  to the architecture.
 * **How checked:** `TEST-GPIO-003` — remap SCLK/TX to GPIO 8, 9, or 16 by configuration only.
 
 ### REQ-TIME-002 — Zero cumulative drift
@@ -369,19 +367,19 @@ requirements it satisfies in `satisfies_reqs` — so nothing here names a candid
 validator reads the candidate tree and checks that no architecture-scoped requirement is
 orphaned.
 
-The candidate's answers — the actual mechanisms — live in
-[`../architectures/candidate_001/decisions.yaml`](../architectures/candidate_001/decisions.yaml)
-and are documented in Part 5.
+The candidate's answers — the actual mechanisms — live in each candidate's
+`decisions.yaml` under [`../architectures/`](../architectures/) and are documented in
+[`../architectures/README.md`](../architectures/README.md).
 
 **Why the separation matters:** a frozen testbench must not assert that a design has a serial
-bootloader on GPIO 0/8, or four lanes, or a 5-bit delay field. Those are candidate 001's
+bootloader on GPIO 0/8, or four lanes, or a 5-bit delay field. Those are one candidate's
 answers. Replacing it changes the decisions, and may retire a requirement whose ambition we
 drop, but nothing in Part 1 or Part 2 moves.
 
 ### REQ-FUNC-008 — ≥2 concurrent hardware channels
 * **What:** Run at least two protocols simultaneously on non-overlapping pins with zero
   cross-channel jitter.
-* **Why:** Realised by `ARCH-PEX-001` (4 lanes). A single-lane design could not satisfy it, so
+* **Why:** A single-lane design could not satisfy it, so
   it is not architecture-neutral. Grounded loosely in the brief's RP2040 PIO / TI PRU
   inspiration, which the brief does not link or quantify.
 * **How checked:** `TEST-PROG-002` — UART TX must be bit-identical whether SPI is idle or
@@ -390,15 +388,14 @@ drop, but nothing in Part 1 or Part 2 moves.
 ### REQ-FUNC-009 — Channel-to-channel synchronisation
 * **What:** Deterministic, low-latency event signalling between concurrent routines (shared
   flags or trigger lines), with 1-cycle propagation, without host involvement.
-* **Why:** Needed only if you have concurrent channels; realised by `ARCH-PEX-016`
-  (8-line latched-flag IRQ system). Self-imposed.
+* **Why:** Needed only if you have concurrent channels. Self-imposed.
 * **How checked:** `TEST-PROG-003` — a waiting routine resumes exactly 1 cycle after the
   trigger asserts.
 
 ### REQ-FUNC-010 — Hardware TX/RX buffering
 * **What:** Buffers between the host interface and the protocol engine, so neither side has to
   synchronise at the bit level.
-* **Why:** Realised by `ARCH-PEX-004` (per-lane 8×16-bit TX/RX FIFOs). A design with direct
+* **Why:** A design with direct
   register access and no FIFOs satisfies the brief too.
 * **How checked:** `TEST-BUFF-001` — host can burst-write up to capacity with no drops; the
   engine drains at full line speed; occupancy is reported correctly.
@@ -406,7 +403,7 @@ drop, but nothing in Part 1 or Part 2 moves.
 ### REQ-FUNC-011 — Lossless stall on empty TX / full RX
 * **What:** Attempting to pop an empty TX buffer or push to a full RX buffer freezes execution
   and resumes without losing, corrupting, **or duplicating** the stalled operation.
-* **Why:** Realised by `ARCH-PEX-021` and the lane FSM `ARCH-PEX-017`. An architectural
+* **Why:** An architectural
   flow-control policy, not a behavioural contract. (The *no-corruption* intent is universal;
   the *stalling* mechanism is a choice.)
 * **How checked:** `TEST-BUFF-002` — PC and pin states freeze; execution resumes cleanly with
@@ -414,7 +411,7 @@ drop, but nothing in Part 1 or Part 2 moves.
 
 ### REQ-FUNC-012 — Configurable watermark thresholds
 * **What:** Programmable RX high-watermark and TX low-watermark that raise an event flag.
-* **Why:** Realised by `ARCH-PEX-013` (`RXTHR`/`TXTHR` → `FIFO_EV`). Depends on buffering
+* **Why:** Depends on buffering
   (`REQ-FUNC-010`).
 * **How checked:** `TEST-BUFF-003` — flag asserts/deasserts exactly at the programmed
   occupancy boundaries.
@@ -422,7 +419,7 @@ drop, but nothing in Part 1 or Part 2 moves.
 ### REQ-IF-007 — Execution-rate prescaler
 * **What:** Divide routine execution by an integer factor (1–65536) while the timestamp
   counter keeps running at full rate.
-* **Why:** Realised by `ARCH-PEX-010` (16-bit `CLKDIV` at CSR 0x20). No external source
+* **Why:** No external source
   requires a prescaler.
 * **How checked:** `TEST-CLK-003` — scale 5 runs one operation per 5 cycles; the timestamp
   advances 5 during that operation.
@@ -432,8 +429,8 @@ drop, but nothing in Part 1 or Part 2 moves.
   over the host link, without an external JTAG/SWD programmer. Execution is held until a
   complete valid image arrives; corrupt frames abort and return to sync-wait.
 * **Why:** Self-imposed, but implied by the brief's "Then make it programmable". The *pins*
-  and *framing* the host link uses are **not** part of this requirement — they are candidate
-  001's answer, recorded in `ARCH-PEX-011` (GPIO 0/8, 8-N-1, `0xAA` framing, divisor 434).
+  and *framing* the host link uses are **not** part of this requirement — they are a
+  candidate's choice.
 * **How checked:** `TEST-BOOT-001` — streamed load, no execution from a partial image,
   `boot_done` only on success, corrupt frames rejected.
 
@@ -441,15 +438,14 @@ drop, but nothing in Part 1 or Part 2 moves.
 * **What:** A bidirectional packet protocol letting the host start/halt routines, read status
   and timestamps, service interrupts, and stream payload data without disturbing real-time
   pin execution.
-* **Why:** Realised by `ARCH-PEX-006` (10-byte binary packet) and `ARCH-PEX-012` (CSR map).
-  Entirely self-imposed.
+* **Why:** Entirely self-imposed.
 * **How checked:** `TEST-HOST-001` — register read/write, FIFO streaming, and graceful
   handling of corrupted transactions.
 
 ### REQ-IF-010 — Soft reset / firmware reload
 * **What:** Reload firmware and restart at any time over the host link (≤4 cycles recovery)
   with no power cycle; volatile program memory survives until overwritten.
-* **Why:** Realised by `ARCH-PEX-023` (`CTRL.soft_reset`). Self-imposed convenience, not a
+* **Why:** Self-imposed convenience, not a
   brief requirement.
 * **How checked:** `TEST-BOOT-002` — routines stop, the device returns to bootstrap sync-wait,
   and a new image loads without cycling `rst_n`.
@@ -458,7 +454,7 @@ drop, but nothing in Part 1 or Part 2 moves.
 * **What:** After loading, firmware may claim the host-link pins for protocol I/O; the
   register link suspends, and a reset always reclaims them.
 * **Why:** Resolves `AMB-002` — with only 8 input-only and 8 output-only pins, a host link
-  costs one of each. Which indices are involved is candidate 001's choice (`ARCH-PEX-027`),
+  costs one of each. Which indices are involved is a candidate's choice,
   not part of this requirement.
 * **How checked:** `TEST-HOST-002` — pin ownership transfers to the lane and is unconditionally
   reclaimed on reset.
@@ -466,8 +462,7 @@ drop, but nothing in Part 1 or Part 2 moves.
 ### REQ-TIME-004 — Fine delay, 1-cycle resolution
 * **What:** Hold pins stable for k cycles, k up to at least 31, at single-cycle resolution,
   with no polling loops.
-* **Why:** Candidate 001 satisfies this with `ARCH-PEX-008`, a 5-bit `DELAY[4:0]` field
-  carried in every instruction word. The requirement is a floor on capability, not an
+* **Why:** The requirement is a floor on capability, not an
   encoding: a wider delay field satisfies it too, so the encoding stays an architecture
   decision.
 * **How checked:** `TEST-TIME-004` — a delay step holds pins for exactly k cycles with zero
@@ -476,8 +471,7 @@ drop, but nothing in Part 1 or Part 2 moves.
 ### REQ-TIME-005 — Coarse delay up to 65,536 cycles
 * **What:** A single operational step that stalls from 1 to ≥65,536 cycles, so long idle
   periods need no unrolled loops.
-* **Why:** Candidate 001 satisfies this with `ARCH-PEX-009`, opcode `0x9` with an 8-bit
-  immediate or the 16-bit X register as the count. As with the fine delay, the operand width
+* **Why:** As with the fine delay, the operand width
   and instruction form are architecture decisions; the requirement is the 65,536-cycle floor.
 * **How checked:** `TEST-TIME-005` — a single step stalls ≥65,536 cycles; PC is frozen until
   the countdown completes.
@@ -485,15 +479,14 @@ drop, but nothing in Part 1 or Part 2 moves.
 ### REQ-TIME-006 — Event-conditioned stalling (`WAIT`)
 * **What:** Block advancement until a hardware condition holds: pin high/low, event flag,
   buffer ready, or `timestamp ≥ target`.
-* **Why:** Realised by `ARCH-PEX-025` (TS capture + `WAIT` condition 0x5) and `ARCH-PEX-016`
-  (IRQ lines). The *capability* is arguably universal (e.g. I2C clock stretching needs it),
+* **Why:** The *capability* is arguably universal (e.g. I2C clock stretching needs it),
   but the encoding is architectural.
 * **How checked:** `TEST-TIME-006` — no advancement and stable pins while waiting; resumes on
   the exact cycle the condition becomes true.
 
 ---
 
-# Part 4 — Ambiguities (5)
+# Part 4 — Ambiguities (4)
 
 These record places where the sources are silent, conflicting, or physically awkward. They
 are *not* requirements; they are decision records with a resolution and a verification check.
@@ -504,75 +497,10 @@ are *not* requirements; they are decision records with a resolution and a verifi
 | **AMB-002** | The host link consumes GPIO 0 and GPIO 8, but a protocol may want all 8 inputs or all 8 outputs. | **RESOLVED** — host pins stay dedicated during boot; after `boot_done` firmware may claim them, suspending the link; hardware reset always reclaims them. Generic tests default to GPIO 1–7, 9–15, 16–23. |
 | **AMB-003** | At 50 MHz, 10BASE-T has only 5 cycles per bit and USB Full-Speed ≈4.17 — no room for CRC-32 or MAC framing in software. | **RESOLVED** — Ethernet and USB Full-Speed are **bit-level framing only**; Low-Speed USB (33 cycles/bit) remains the full-packet target. |
 | **AMB-004** | Open-drain rise time depends on external pull-ups and board capacitance; Fast-mode I2C allows only 300 ns. The demo board is unspecified. | **OPEN** — assumed 2.2–4.7 kΩ pull-up and <100 pF, pending organiser clarification. The only unresolved item in the repo. |
-| **AMB-005** | The brief says 6×4 tiles; the imported Specialist spec asserted 8×4 / 32K as settled. | **RESOLVED** — the brief wins: 6×4 baseline, ≤18,000 cells, 8×4 conditional only. The stale figures are not used as the budget source. |
 
 ---
 
-# Part 5 — Candidate 001's decisions (PEX, 27 decisions)
-
-The `ARCH-PEX-*` entries are **candidate 001**, not requirements. Removing any of them does
-not change what is being asked for; it changes *one possible answer*. They live in
-[`../architectures/candidate_001/decisions.yaml`](../architectures/candidate_001/decisions.yaml)
-and give every architecture-scoped requirement a realised counterpart.
-
-**PEX (Programmable Protocol Emulator eXecutive) in one paragraph:** four independent
-single-cycle execution lanes, each running 24-bit microcode from a shared 1024×24-bit SRAM
-(256-word bank per lane); each lane has 16 scratch/shift registers, 3 side-set pin bits, an
-8-entry TX and RX FIFO, and a 16-bit stall counter, and drives 16 virtual pins mapped through
-a crossbar to the 24 real GPIOs; a mask-ROM UART loader fills the SRAM at boot; a 256-byte CSR
-space lets the host control lanes and stream data over a 10-byte binary packet.
-
-| Group | Decisions | Note |
-|---|---|---|
-| Execution | 001 (4 lanes), 007 (non-pipelined), 017 (lane FSM), 019 (X/Y registers) | The core bet: single-cycle, non-pipelined = deterministic by construction |
-| ISA | 002 (24-bit word), 008 (5-bit DELAY), 009 (DELAY opcode), 015 (12 opcodes + trap), 025 (TS/WAIT timing) | 12 opcodes: JMP, WAIT, IN, OUT, PUSH, PULL, MOV, IRQ, SET, DELAY, TS, HALT |
-| Pins | 003 (16→24 crossbar), 014 (static lane priority), 020 (per-lane OE mask) | Crossbar decouples firmware from pad assignment |
-| Memory | 005 (1024×24 SRAM, 4 banks), 024 (75% pre-P&R gate) | Directly answers the brief's SRAM hint, bounded by `REQ-PHYS-002` |
-| Data flow | 004 (per-lane FIFOs), 013 (watermarks), 021 (stall semantics), 022 (FIFO data port) | Makes streaming lossless without polling |
-| Host/boot | 006 (10-byte packet), 011 (ROM loader), 012 (CSR map), 018 (boot FSM), 023 (soft reset), 026 (autostart) | The entire host link, none of which is on the website |
-| Timing | 010 (16-bit CLKDIV), 016 (8-line IRQ), 025 (timestamp) | 025 also realises the timestamp and WAIT timing requirements |
-| Pin ownership | 027 (host-pin handover) | Owns the GPIO 0/8 handover |
-
-### Every decision, one line each
-
-| ID | Decision | What it commits to |
-|---|---|---|
-| ARCH-PEX-001 | Quad execution lanes | 4 independent single-cycle lanes (SM0–SM3), each with its own PC, X/Y, OSR/ISR, side-set latch, stall counter |
-| ARCH-PEX-002 | 24-bit instruction word | One uniform word packing `DELAY[4:0]`, `SIDE[2:0]`, `OPCODE[3:0]`, `PORT[3:0]`, `IMM[7:0]` |
-| ARCH-PEX-003 | Virtual pin crossbar | Each lane has `VPINS[15:0]`; 4-bit config maps each to GPIO 0–23, const 0/1, or an internal flag; identity at reset |
-| ARCH-PEX-004 | Per-lane FIFOs | Independent 8-deep × 16-bit TX and RX FIFOs per lane (1,024 flip-flops total) |
-| ARCH-PEX-005 | Shared program SRAM | One 1024×24-bit macro, four 256-word banks; each lane's PC defaults into its own bank |
-| ARCH-PEX-006 | Host packet protocol | 10-byte frame `0x5A`, TYPE, ADDR, DATA, XSUM for all post-boot CSR and FIFO access |
-| ARCH-PEX-007 | Non-pipelined execution | Fetch, decode, ALU, pin update, and write-back all in one `posedge clk` — no hazards to model |
-| ARCH-PEX-008 | 5-bit DELAY field | Every instruction can stall 0–31 cycles at no extra program-word cost |
-| ARCH-PEX-009 | DELAY opcode | Opcode `0x9` stalls N+1 cycles, N from the 8-bit immediate or the 16-bit X register |
-| ARCH-PEX-010 | CLKDIV prescaler | 16-bit `CLKDIV` at CSR 0x20 divides lane execution by `CLKDIV+1` (0 = full speed) |
-| ARCH-PEX-011 | ROM bootstrap loader | ~64×24 mask ROM listening at 115200 baud: `0xAA` sync, 16-bit LE length, 3-byte LE words, `0x55` end |
-| ARCH-PEX-012 | CSR map | 256-byte, 32-bit-word-granular register space: global 0x00–0x3F, per-lane 0x40–0xBF, reserved 0xC0–0xFF |
-| ARCH-PEX-013 | Watermarks | 4-bit `RXTHR`/`TXTHR` in `PCTRL` drive a level-sensitive `FIFO_EV` flag usable as a `WAIT` condition |
-| ARCH-PEX-014 | Output contention | If two lanes drive the same GPIO, fixed priority SM0 > SM1 > SM2 > SM3 |
-| ARCH-PEX-015 | ISA | 12 opcodes (JMP, WAIT, IN, OUT, PUSH, PULL, MOV, IRQ, SET, DELAY, TS, HALT); `0xC`–`0xF` trap the lane to IDLE |
-| ARCH-PEX-016 | IRQ system | Exactly 8 global latched IRQ lines, manipulated by the `IRQ` opcode, sampled only at instruction boundaries |
-| ARCH-PEX-017 | Lane FSM | 5 states — RESET, IDLE, RUN, STALL, PAUSED; STALL freezes PC without duplicating instruction effects |
-| ARCH-PEX-018 | Boot FSM | 5 states — RESET, BOOT, LOAD, READY, RUN; invalid frames return to BOOT |
-| ARCH-PEX-019 | Scratch registers | 16-bit X and Y per lane for counts, shift data, far jumps; host-readable via CSR when paused |
-| ARCH-PEX-020 | Output-enable mask | 16-bit `OE_MASK` in `PCTRL` controls pad driving — the mechanism behind open-drain emulation |
-| ARCH-PEX-021 | FIFO stall semantics | `PULL` on empty TX or `PUSH` to full RX moves the lane to STALL with no dropped words |
-| ARCH-PEX-022 | FIFO data port | Reading `FIFO_DATA` (+0x18) pops RX; writing pushes TX |
-| ARCH-PEX-023 | Soft reset | `CTRL.soft_reset` returns to BOOT without clearing SRAM; `PCTRL.RESET` restarts an individual lane |
-| ARCH-PEX-024 | Area gate | Synthesis must run before P&R and mapped cells must stay ≤75% of the tile budget |
-| ARCH-PEX-025 | Absolute-time scheduling | `TS` captures the 32-bit timestamp into `TS_REG`; `WAIT` condition `0x5` blocks until `timestamp ≥ TS_REG` |
-| ARCH-PEX-026 | Boot autostart | `CTRL.autostart` makes the bootloader assert GO on lane 0 upon reaching READY |
-| ARCH-PEX-027 | Host-pin handover | GPIO 0/8 are owned by the host UART until `boot_done`; firmware may then claim them as protocol pins, and any reset reclaims them |
-
-**The thing to watch:** decisions 004, 006, 008, 009, 010, 011, 012, 013, 016, 018, 021, 022,
-023, 025 are the *realisations* of the Part 3 architecture-scoped requirements. If PEX is
-replaced by Candidate 002, all of Part 3 is reconsidered — and nothing in Part 1 or Part 2
-needs to move, which is exactly why the frozen contract excludes Part 3.
-
----
-
-# Part 6 — Quick reference
+# Part 5 — Quick reference
 
 ## Frozen contract (22)
 

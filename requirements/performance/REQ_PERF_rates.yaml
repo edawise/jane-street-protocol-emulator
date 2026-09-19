@@ -32,7 +32,7 @@ requirements:
       - Oscilloscope / VCD measurement of 115,200 baud bit cell measures 8.68 µs ± 20 ns.
       - Back-to-back transfer of 256 bytes completes with zero bit or framing errors.
     traceability:
-      source_spec: "08-reference-protocols/sections/uart/content.md"
+      source_spec: "external-standard (ITU-T V.24 / NS16550A baud rates); subject 'UART' named in js-brief"
       standards:
         - id: "ITU-T V.24"
           title: "ITU-T Recommendation V.24: List of definitions for interchange circuits between data terminal equipment (DTE) and data circuit-terminating equipment (DCE)"
@@ -63,7 +63,7 @@ requirements:
       of 2 clock cycles per SCLK period (1 cycle high, 1 cycle low). This is a
       self-imposed performance target, not an external mandate; the externally
       mandated obligation is only that the SPI clock rate is configurable
-      (REQ-FUNC-003 / R-GOAL-02). The emulator should support the 25 MHz target
+      (REQ-FUNC-003). The emulator should support the 25 MHz target
       where the microarchitecture allows and must at least cover the rates needed
       by the reference protocols.
     inputs:
@@ -80,7 +80,7 @@ requirements:
       - MOSI data changes on the correct clock edge according to CPOL/CPHA mode.
       - Setup and hold times relative to SCLK meet SPI device requirements.
     traceability:
-      source_spec: "08-reference-protocols/sections/spi/content.md"
+      source_spec: "engineered — self-imposed 25 MHz target; the external obligation is only a configurable SPI clock (REQ-FUNC-003)"
     verification:
       method: simulation
       reference_model: "spi_master_reference_model"
@@ -119,7 +119,7 @@ requirements:
       - SCL high and low periods conform to I2C specification across both 100 kHz and 400 kHz modes.
       - SDA hold time and setup time around SCL edges strictly conform to NXP UM10204 standards.
     traceability:
-      source_spec: "08-reference-protocols/sections/i2c/content.md"
+      source_spec: "external-standard (NXP UM10204 100 kHz / 400 kHz); subject 'I2C' named in js-brief"
       standards:
         - id: "NXP-UM10204"
           title: "NXP UM10204: I2C-bus specification and user manual"

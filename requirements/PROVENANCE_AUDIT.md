@@ -84,8 +84,8 @@ standards-derived (testable, kept external) or self-imposed (kept internal).
    clock-tree buffers and routing". Split out as `REQ-PHYS-006` (`internal`), leaving
    `REQ-PHYS-002` as the external 6×4 tile mandate.
 6. **Determinism (`REQ-TIME-001`)** is brief-grounded only in "hitting timing precisely"; the
-   "no caches/speculation" clause was an architectural leak and has been moved to the
-   candidate decision `ARCH-PEX-007`.
+   "no caches/speculation" clause was an architectural leak and has been removed from the
+   requirement (a candidate's deterministic-execution decision will carry it instead).
 
 ---
 
@@ -97,12 +97,11 @@ standards-derived (testable, kept external) or self-imposed (kept internal).
 | AMB-002 | Host-link pin multiplexing | NONE | Entire host link is self-imposed |
 | AMB-003 | 50 MHz vs 10BASE-T / USB FS budgets | PARTIAL | 50 MHz from `S3`/`S2`; cycle-budget analysis internal |
 | AMB-004 | External pull-up / bus capacitance | NONE | Pure engineering; status OPEN |
-| AMB-005 | Tile budget 6×4 (blog) vs 8×4 (imported spec) | DIRECT | The blog is authoritative |
 
 ---
 
 ## 6. Architectural decisions
 
-All 27 `ARCH-PEX-*` decisions have no basis on the website; they are candidate
-microarchitecture choices. The one thread that is traceable is the area-budget spirit of
-`ARCH-PEX-024` (run synthesis early, leave routing headroom).
+No candidate architecture has been designed yet, so there are no `ARCH-*` decisions to audit.
+When candidates exist, each decision's provenance (or lack of website basis) will be recorded
+here.

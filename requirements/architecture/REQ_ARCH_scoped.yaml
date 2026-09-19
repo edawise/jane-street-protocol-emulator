@@ -25,7 +25,7 @@ requirements:
     status: ASSUMED
     arch_scope: architecture-scoped
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator shall support concurrent, non-interfering protocol
       execution across at least two independent hardware execution channels operating
@@ -50,7 +50,7 @@ requirements:
       - Simultaneous execution of UART TX on pin A and SPI Master on pins B, C, D.
       - Waveform timing of UART TX verified to remain bit-identical whether SPI Master is idle or actively transferring at maximum clock rate.
     traceability:
-      source_spec: "01-overview/sections/about-pex/content.md"
+      source_spec: "engineered — portable design-class capability; loosely grounded in the brief's RP2040 PIO / TI PRU inspiration"
     verification:
       method: simulation
       reference_model: "multi_channel_scheduler_reference_model"
@@ -84,7 +84,7 @@ requirements:
       - Routine B waiting on a trigger from Routine A resumes execution exactly 1 cycle after Routine A asserts the trigger.
       - Event flags are sampled synchronously without pre-empting instruction execution.
     traceability:
-      source_spec: "04-isa/sections/irq-system/content.md"
+      source_spec: "engineered — self-imposed channel-to-channel synchronisation"
     verification:
       method: simulation
       reference_model: "event_sync_reference_model"
@@ -96,7 +96,7 @@ requirements:
     status: ASSUMED
     arch_scope: architecture-scoped
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator shall provide hardware data buffering between the host
       communication interface and the protocol execution engine for both transmit
@@ -125,7 +125,7 @@ requirements:
       - Protocol engine can drain transmit buffer at full line speed.
       - Buffer occupancy levels correctly report entries queued.
     traceability:
-      source_spec: "02-architecture/sections/fifos/content.md"
+      source_spec: "engineered — host↔engine buffering; a design without FIFOs satisfies the brief too"
     verification:
       method: simulation
       reference_model: "fifo_stream_reference_model"
@@ -168,7 +168,7 @@ requirements:
       - As soon as host writes data into TX buffer, execution resumes without dropping words.
       - Stalled instruction effect is not duplicated when the stall condition clears.
     traceability:
-      source_spec: "02-architecture/sections/fifos/content.md"
+      source_spec: "engineered — architectural flow-control policy (the no-corruption intent is universal; stalling is a choice)"
     verification:
       method: simulation
       reference_model: "fifo_stream_reference_model"
@@ -206,7 +206,7 @@ requirements:
       - Flag asserts when TX occupancy <= tx_threshold (for non-zero threshold).
       - Flag deasserts immediately when buffer state moves out of threshold range.
     traceability:
-      source_spec: "02-architecture/sections/fifos/content.md"
+      source_spec: "engineered — depends on REQ-FUNC-010 buffering"
     verification:
       method: simulation
       reference_model: "fifo_stream_reference_model"
@@ -222,7 +222,7 @@ requirements:
     status: ASSUMED
     arch_scope: architecture-scoped
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator shall support configurable execution rate scaling to
       divide or pace routine execution relative to the full-rate timestamp counter.
@@ -244,7 +244,7 @@ requirements:
       - With scale factor = 5, routine executes 1 operation every 5 cycles (10 MHz).
       - Timestamp counter advances by 5 cycles during that single divided operation.
     traceability:
-      source_spec: "03-interfaces/sections/clock-reset/content.md"
+      source_spec: "engineered — no external source requires a prescaler"
     verification:
       method: simulation
       reference_model: "clock_prescaler_reference_model"
@@ -256,7 +256,7 @@ requirements:
     status: ASSUMED
     arch_scope: architecture-scoped
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator shall implement an in-system firmware loading path over
       the host link, capable of receiving, verifying, and writing firmware images into
@@ -289,7 +289,7 @@ requirements:
       - The `boot_done` flag is asserted only on a successful load and is cleared on any return to the BOOT state.
       - Corrupted or invalid frames (bad length, missing end marker, over-length) abort the load, return to the BOOT sync-wait state, and leave `boot_done` deasserted.
     traceability:
-      source_spec: "05-program-loading/sections/bootstrap-rom/content.md"
+      source_spec: "engineered — implied by the brief's 'then make it programmable'; pins/framing are architecture decisions"
     verification:
       method: simulation
       reference_model: "bootloader_reference_model"
@@ -302,7 +302,7 @@ requirements:
     status: ASSUMED
     arch_scope: architecture-scoped
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       Following completion of firmware loading, the host serial link shall provide
       a bidirectional register and data streaming access protocol capable of
@@ -326,7 +326,7 @@ requirements:
       - Host can write data into transmit buffers and read data from receive buffers.
       - Corrupted transactions are detected and handled without link deadlocks.
     traceability:
-      source_spec: "03-interfaces/sections/host-csr-link/content.md"
+      source_spec: "engineered — entirely self-imposed post-boot host link"
     verification:
       method: simulation
       reference_model: "host_csr_reference_model"
@@ -339,7 +339,7 @@ requirements:
     status: ASSUMED
     arch_scope: architecture-scoped
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The emulator shall support firmware reloading and soft reset at any time
       over the host link without requiring a hardware power cycle.
@@ -361,7 +361,7 @@ requirements:
       - System returns to bootstrap sync-wait state.
       - Reloading new firmware succeeds without cycling `rst_n` or `ena`.
     traceability:
-      source_spec: "05-program-loading/sections/boot-sequence/content.md"
+      source_spec: "engineered — self-imposed convenience"
     verification:
       method: simulation
       reference_model: "boot_fsm_reference_model"
@@ -374,7 +374,7 @@ requirements:
     status: ASSUMED
     arch_scope: architecture-scoped
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The emulator should permit firmware to re-purpose the pins used by the host link
       for protocol I/O after boot loading is complete, with recovery on reset.
@@ -395,7 +395,7 @@ requirements:
       - Firmware can route execution channel signals to the host-link pins when enabled.
       - Reset unconditionally re-claims the host-link pins for host UART.
     traceability:
-      source_spec: "03-interfaces/sections/host-uart/content.md"
+      source_spec: "engineered — resolves AMB-002; the specific pin indices are a candidate choice"
     verification:
       method: simulation
       reference_model: "gpio_pad_reference_model"
@@ -437,7 +437,7 @@ requirements:
       - Some operand value holds output pins steady for at least 31 clock cycles at 1-cycle resolution.
       - Fine delay introduces zero timing jitter or phase offset.
     traceability:
-      source_spec: "02-architecture/sections/timing-engine/content.md"
+      source_spec: "engineered — fine-delay capability floor; the encoding is an architecture decision"
     verification:
       method: simulation
       reference_model: "delay_engine_reference_model"
@@ -474,7 +474,7 @@ requirements:
       - Some operand value produces a single-step stall of at least 65,536 clock cycles.
       - Program counter remains frozen on the delay step until the countdown finishes.
     traceability:
-      source_spec: "02-architecture/sections/timing-engine/content.md"
+      source_spec: "engineered — coarse-delay capability floor; operand width is an architecture decision"
     verification:
       method: simulation
       reference_model: "delay_engine_reference_model"
@@ -512,7 +512,7 @@ requirements:
       - Output pins hold their state while waiting.
       - As soon as the condition evaluates true on a clock edge, execution proceeds to the next step.
     traceability:
-      source_spec: "02-architecture/sections/timing-engine/content.md"
+      source_spec: "engineered — event-conditioned stalling capability; the encoding is architectural"
     verification:
       method: simulation
       reference_model: "event_wait_reference_model"

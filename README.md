@@ -6,8 +6,8 @@ Using [edawise/edagent](https://github.com/edawise/edagent).
 
 ## Status
 
-Requirements and verification infrastructure. There is no RTL, no reference model, and no
-synthesis output yet.
+Requirements and verification infrastructure. There is no candidate architecture, no RTL, no
+reference model, and no synthesis output yet.
 
 ## Layout
 
@@ -34,17 +34,16 @@ The repository separates **problems** from **solutions**:
 │   ├── specification.md
 │   └── README.md  REQUIREMENTS_GUIDE.md  PROVENANCE_AUDIT.md
 │
-├── architectures/                  # SOLUTIONS
-│   ├── README.md
-│   └── candidate_001/decisions.yaml
+├── architectures/                  # SOLUTIONS (no candidates designed yet)
+│   └── README.md
 │
 └── verification/
     ├── intent.schema.json
     └── intent/example_uart_8n1.yaml
 ```
 
-Not present yet: `models/`, per-candidate `rtl/`, `synthesis/`, `physical/`, `research/`,
-`agents/`.
+Not present yet: candidate architectures, `models/`, per-candidate `rtl/`, `synthesis/`,
+`physical/`, `research/`, `agents/`.
 
 ## The two axes
 

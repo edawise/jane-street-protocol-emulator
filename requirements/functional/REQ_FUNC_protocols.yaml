@@ -191,7 +191,7 @@ requirements:
     status: ASSUMED
     arch_scope: independent
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       The protocol emulator should support Serial Peripheral Interface (SPI)
       slave mode operation with clock edge synchronization and chip-select gating.
@@ -228,7 +228,7 @@ requirements:
       - Immediate response to SCLK edges within setup/hold constraints.
       - Full-duplex loopback with SPI master at the engineered target rate (<= 10 MHz).
     traceability:
-      source_spec: "08-reference-protocols/sections/spi/content.md"
+      source_spec: "engineered — master-only SPI already satisfies the brief; slave mode is self-imposed for device-under-test emulation"
     verification:
       method: simulation
       reference_model: "spi_slave_reference_model"
@@ -338,7 +338,7 @@ requirements:
       - When SCL is released to float high, the emulator delays state advancement until scl_sense reads logic 1.
       - Slave clock stretching of up to 100 SCL periods handled without data corruption or bus lockup.
     traceability:
-      source_spec: "js-brief https://blog.janestreet.com/protocol-emulator-asic-competition/ | derived: 08-reference-protocols/sections/i2c/content.md"
+      source_spec: "js-brief #the-challenge (names I2C) + NXP UM10204 (open-drain, clock stretching) + tt-template (push-pull pads, uio_oe)"
       standards:
         - id: "NXP-UM10204"
           title: "NXP UM10204: I2C-bus specification and user manual"

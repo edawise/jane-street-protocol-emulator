@@ -53,7 +53,7 @@ requirements:
       - Sampling `ui_in` reflects incoming physical pin states on `GPIO[7:0]`.
       - Driving `uo_out` directly asserts physical states on `GPIO[15:8]`.
     traceability:
-      source_spec: "03-interfaces/sections/gpio-interface/content.md"
+      source_spec: "tt-template (src/project.v tt_um_* port list) + TT FAQ (8 ins / 8 outs / 8 bidirectional)"
     verification:
       method: simulation
       reference_model: "gpio_pad_reference_model"
@@ -91,7 +91,7 @@ requirements:
       - Readback during floated state accurately reflects external line voltage.
       - Open-drain emulation verifies low driven with OE=1 and high floated with OE=0.
     traceability:
-      source_spec: "03-interfaces/sections/gpio-interface/content.md"
+      source_spec: "tt-template (src/project.v uio_oe — 'active high: 0=input, 1=output')"
     verification:
       method: simulation
       reference_model: "gpio_pad_reference_model"
@@ -104,7 +104,7 @@ requirements:
     status: ASSUMED
     arch_scope: independent
     obligation: internal
-    source_provenance: specialist-spec
+    source_provenance: engineered
     statement: >
       Protocol signals shall be assignable to physical GPIO pins by firmware
       configuration, so that a protocol routine is not bound to a fixed pin set
@@ -127,7 +127,7 @@ requirements:
       - A protocol signal (e.g. SCLK, TX) can be mapped to GPIO 8, GPIO 9, or GPIO 16 solely via software configuration.
       - Relocating a protocol to a different pin requires only a configuration change, with no re-synthesis or RTL edit.
     traceability:
-      source_spec: "02-architecture/sections/pin-crossbar/content.md"
+      source_spec: "engineered — follows from the brief's post-fabrication reprogrammability; the routing mechanism is an architecture decision"
     verification:
       method: simulation
       reference_model: "pin_crossbar_reference_model"
@@ -163,7 +163,7 @@ requirements:
       - Immediately upon reset, all unassigned `uo_out` pins read logic low.
       - Immediately upon reset, all `uio_oe` bits read 0.
     traceability:
-      source_spec: "03-interfaces/sections/gpio-interface/content.md"
+      source_spec: "tt-template (src/project.v — 'All output pins must be assigned. If not used, assign to 0.')"
     verification:
       method: simulation
       reference_model: "gpio_pad_reference_model"
